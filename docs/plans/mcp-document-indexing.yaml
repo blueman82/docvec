@@ -1,0 +1,1227 @@
+conductor:
+  default_agent: python-pro
+  max_concurrency: 3
+
+  quality_control:
+    enabled: true
+    review_agent: quality-control
+    retry_on_red: 2
+
+    agents:
+      mode: intelligent
+      max_agents: 3
+      cache_ttl_seconds: 1800
+      require_code_review: true
+      explicit_list: []
+      additional: []
+      blocked: []
+
+  worktree_groups:
+    - group_id: "chain-1"
+      description: "Foundation & Core Infrastructure (Tasks 1→2→3→4→5→6)"
+      tasks: [1, 2, 3, 4, 5, 6]
+      branch: "feature/mcp-document-indexing/chain-1"
+      execution_model: "sequential"
+      isolation: "separate-worktree"
+      rationale: "Core components: project setup, token counting, chunking, embeddings, storage, document models"
+      setup_commands: |
+        git worktree add ../claude_graph-chain-1 -b feature/mcp-document-indexing/chain-1
+        cd ../claude_graph-chain-1
+        # Execute tasks 1-6 sequentially
+        # After each task: git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/chain-1
+
+    - group_id: "chain-2"
+      description: "Indexing & Deduplication Layer (Tasks 7→8→9)"
+      tasks: [7, 8, 9]
+      branch: "feature/mcp-document-indexing/chain-2"
+      execution_model: "sequential"
+      isolation: "separate-worktree"
+      rationale: "Document indexing with hash-based deduplication"
+      setup_commands: |
+        git worktree add ../claude_graph-chain-2 -b feature/mcp-document-indexing/chain-2
+        cd ../claude_graph-chain-2
+        # Execute tasks 7-9 sequentially
+        # After each task: git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/chain-2
+
+    - group_id: "chain-3"
+      description: "Query & Retrieval Layer (Tasks 10→11)"
+      tasks: [10, 11]
+      branch: "feature/mcp-document-indexing/chain-3"
+      execution_model: "sequential"
+      isolation: "separate-worktree"
+      rationale: "Semantic search and query functionality"
+      setup_commands: |
+        git worktree add ../claude_graph-chain-3 -b feature/mcp-document-indexing/chain-3
+        cd ../claude_graph-chain-3
+        # Execute tasks 10-11 sequentially
+        # After each task: git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/chain-3
+
+    - group_id: "chain-4"
+      description: "MCP Server Integration (Tasks 12→13→14)"
+      tasks: [12, 13, 14]
+      branch: "feature/mcp-document-indexing/chain-4"
+      execution_model: "sequential"
+      isolation: "separate-worktree"
+      rationale: "MCP server with tool interface"
+      setup_commands: |
+        git worktree add ../claude_graph-chain-4 -b feature/mcp-document-indexing/chain-4
+        cd ../claude_graph-chain-4
+        # Execute tasks 12-14 sequentially
+        # After each task: git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/chain-4
+
+    - group_id: "independent-1"
+      description: "Integration Tests (Task 15)"
+      tasks: [15]
+      branch: "feature/mcp-document-indexing/independent-1"
+      execution_model: "parallel"
+      isolation: "separate-worktree"
+      rationale: "Integration tests can run independently once core implementation is complete"
+      setup_commands: |
+        git worktree add ../claude_graph-independent-1 -b feature/mcp-document-indexing/independent-1
+        cd ../claude_graph-independent-1
+        # Execute task 15
+        # git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/independent-1
+
+    - group_id: "independent-2"
+      description: "Documentation (Task 16)"
+      tasks: [16]
+      branch: "feature/mcp-document-indexing/independent-2"
+      execution_model: "parallel"
+      isolation: "separate-worktree"
+      rationale: "Documentation can be written in parallel"
+      setup_commands: |
+        git worktree add ../claude_graph-independent-2 -b feature/mcp-document-indexing/independent-2
+        cd ../claude_graph-independent-2
+        # Execute task 16
+        # git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/independent-2
+
+    - group_id: "independent-3"
+      description: "Deployment Configuration (Task 17)"
+      tasks: [17]
+      branch: "feature/mcp-document-indexing/independent-3"
+      execution_model: "parallel"
+      isolation: "separate-worktree"
+      rationale: "MCP configuration can be prepared independently"
+      setup_commands: |
+        git worktree add ../claude_graph-independent-3 -b feature/mcp-document-indexing/independent-3
+        cd ../claude_graph-independent-3
+        # Execute task 17
+        # git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/independent-3
+
+    - group_id: "independent-4"
+      description: "Initial Data Loading (Task 18)"
+      tasks: [18]
+      branch: "feature/mcp-document-indexing/independent-4"
+      execution_model: "parallel"
+      isolation: "separate-worktree"
+      rationale: "Loading initial AI docs is an operational task"
+      setup_commands: |
+        git worktree add ../claude_graph-independent-4 -b feature/mcp-document-indexing/independent-4
+        cd ../claude_graph-independent-4
+        # Execute task 18
+        # git add . && git commit
+        # When complete: git checkout main && git merge feature/mcp-document-indexing/independent-4
+
+plan:
+  metadata:
+    feature_name: "MCP Document Indexing & Semantic Retrieval"
+    created: "2025-11-22"
+    target: "Build an MCP server for persistent document indexing and semantic retrieval using ChromaDB and Ollama embeddings"
+    estimated_tasks: 18
+
+  context:
+    framework: "Python 3.14"
+    architecture: "MCP server with ChromaDB vector storage and Ollama local embeddings"
+    test_framework: "pytest"
+    other_context:
+      - "Greenfield project - needs git init, uv init, directory structure"
+      - "Target hardware: Mac Mini M4 Pro with 24GB RAM"
+      - "Success metrics: <2s query latency, 80% top-3 retrieval accuracy"
+      - "Cost optimization: Break-even after 2-3 queries per document (30k tokens saved)"
+    expectations:
+      - "Write tests BEFORE implementation (TDD - red, green, refactor)"
+      - "Commit frequently after each completed task"
+      - "Use Google-style docstrings"
+      - "Keep modules ≤400-500 lines"
+      - "DRY (Don't Repeat Yourself)"
+      - "YAGNI (You Aren't Gonna Need It)"
+      - "Use uv for package management (NOT pip, no version pinning)"
+      - "Functional comments explaining 'why' not 'what'"
+      - "Target 80% test coverage minimum"
+
+  prerequisites:
+    - item: "Git repository initialized"
+      details: "git init (greenfield project)"
+      verified: false
+      blocking: true
+
+    - item: "Python 3.14 installed"
+      details: "python --version shows 3.14.x"
+      verified: false
+      blocking: true
+
+    - item: "uv package manager installed"
+      details: "uv should be at /Users/harrison/.local/bin/uv"
+      verified: false
+      blocking: true
+
+    - item: "Ollama installed and running"
+      details: "ollama serve running, mxbai-embed-large model pulled"
+      verified: false
+      blocking: true
+      commands:
+        - "ollama list"
+        - "ollama pull mxbai-embed-large"
+
+    - item: "Development environment validation (BLOCKING)"
+      details: |
+        MUST complete before any implementation tasks:
+        - uv init (creates pyproject.toml, .python-version, src/ directory)
+        - Configure pyproject.toml with mypy_path and pytest pythonpath
+        - Install dependencies: uv add chromadb ollama tiktoken mcp
+        - Install dev dependencies: uv add --dev pytest pytest-cov pytest-asyncio pytest-mock mypy black ruff isort types-requests
+        - Verify: python -m mypy --version && python -m pytest --collect-only
+      blocking: true
+      verified: false
+
+  common_pitfalls_reference:
+    purpose: |
+      Review this section BEFORE starting any tasks to avoid repeating common errors.
+
+    python_pitfalls:
+      - pitfall: "Using 'from src.' imports instead of proper module imports"
+        error_example: |
+          # WRONG
+          from src.chunking.markdown import MarkdownChunker
+
+          # RIGHT (when src/ in PYTHONPATH)
+          from chunking.markdown import MarkdownChunker
+        why: "ModuleNotFoundError when running tests from different directories"
+        detection: "grep -r 'from src\\.' . --include='*.py'"
+        fix: "Update imports and ensure pytest.ini has pythonpath = ['src']"
+
+      - pitfall: "Not using tiktoken for accurate token counting"
+        error_example: |
+          # WRONG - naive counting
+          def count_tokens(text: str) -> int:
+              return len(text.split())
+
+          # RIGHT - use tiktoken
+          import tiktoken
+          def count_tokens(text: str) -> int:
+              encoding = tiktoken.get_encoding("cl100k_base")
+              return len(encoding.encode(text))
+        why: "Inaccurate token counts lead to chunks exceeding limits"
+        detection: "Search for token counting without tiktoken"
+        fix: "Always use tiktoken with cl100k_base encoding"
+
+      - pitfall: "Hardcoded file paths or ChromaDB locations"
+        error_example: |
+          # WRONG
+          DB_PATH = "/Users/harrison/.claude_graph/chroma_db"
+
+          # RIGHT
+          DB_PATH = Path(os.getenv("CLAUDE_GRAPH_DB_PATH", Path.home() / ".claude_graph" / "chroma_db"))
+        why: "Code won't work on other machines"
+        detection: "grep -r '/Users/' . --include='*.py'"
+        fix: "Use environment variables and pathlib"
+
+      - pitfall: "Not handling Ollama connection failures"
+        error_example: |
+          # WRONG - crashes on Ollama down
+          def embed(text: str) -> list[float]:
+              return ollama.embeddings(model="mxbai-embed-large", prompt=text)
+
+          # RIGHT - retry with exponential backoff
+          # See Critical Patterns section for complete implementation
+        why: "Ollama might not be running or temporarily unavailable"
+        detection: "Check for try/except around ollama calls"
+        fix: "Add retry logic with helpful error messages"
+
+  development_environment:
+    python:
+      type_checking:
+        tool: "mypy"
+        config_file: "pyproject.toml"
+        required_settings:
+          mypy_path: "src"
+          python_version: "3.14"
+          strict: true
+          disallow_untyped_defs: true
+        validation_command: "python -m mypy src/"
+        expected_output: "Success: no issues found"
+        config_example: |
+          [tool.mypy]
+          python_version = "3.14"
+          warn_return_any = true
+          warn_unused_configs = true
+          disallow_untyped_defs = true
+          mypy_path = "src"
+          strict = true
+
+      testing:
+        tool: "pytest"
+        config_file: "pyproject.toml"
+        required_settings:
+          pythonpath: "src"
+          testpaths: "tests"
+          python_files: "test_*.py"
+        validation_command: "python -m pytest --collect-only"
+        expected_output: "collected N items"
+        config_example: |
+          [tool.pytest.ini_options]
+          pythonpath = ["src"]
+          testpaths = ["tests"]
+          python_files = ["test_*.py"]
+          addopts = "-v --strict-markers --cov=src --cov-report=term-missing"
+
+      formatting_and_linting:
+        formatter: "black"
+        config_example: |
+          [tool.black]
+          line-length = 100
+          target-version = ['py314']
+        linter: "ruff"
+        config_example_2: |
+          [tool.ruff]
+          select = ["E", "F", "I", "N", "W"]
+          line-length = 100
+          target-version = "py314"
+
+  tasks:
+    - task_number: 1
+      name: "Project Setup and Configuration"
+      type: "component"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "pyproject.toml"
+        - "src/config.py"
+        - ".gitignore"
+      depends_on: []
+      estimated_time: "30m"
+
+      success_criteria:
+        - "pyproject.toml created with all dependencies"
+        - "Config class reads from environment variables"
+        - "Directory structure created (src/, tests/, with __init__.py files)"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_config.py -v"
+
+      description: |
+        Initialize the greenfield project with proper Python packaging, configuration management, and git setup.
+        This task establishes the foundation for all subsequent development.
+
+      test_first:
+        test_file: "tests/unit/test_config.py"
+        structure:
+          - "test_config_default_values() - Config uses sensible defaults"
+          - "test_config_respects_environment_variables() - Config reads from env"
+          - "test_ensure_db_path_creates_directory() - Directory creation works"
+        example_skeleton: |
+          import os
+          from pathlib import Path
+          import pytest
+          from config import Config
+
+          def test_config_default_values():
+              assert Config.DB_PATH == Path.home() / ".claude_graph" / "chroma_db"
+              assert Config.OLLAMA_HOST == "http://localhost:11434"
+              assert Config.EMBEDDING_MODEL == "mxbai-embed-large"
+
+          def test_config_respects_environment_variables(monkeypatch):
+              monkeypatch.setenv("CLAUDE_GRAPH_DB_PATH", "/custom/path")
+              monkeypatch.setenv("EMBEDDING_MODEL", "custom-model")
+              # Reload config module
+              import importlib, config as config_module
+              importlib.reload(config_module)
+              from config import Config
+              assert str(Config.DB_PATH) == "/custom/path"
+              assert Config.EMBEDDING_MODEL == "custom-model"
+
+          def test_ensure_db_path_creates_directory(tmp_path, monkeypatch):
+              db_path = tmp_path / "test_db"
+              monkeypatch.setenv("CLAUDE_GRAPH_DB_PATH", str(db_path))
+              import importlib, config as config_module
+              importlib.reload(config_module)
+              from config import Config
+              assert not db_path.exists()
+              Config.ensure_db_path_exists()
+              assert db_path.exists()
+
+      implementation:
+        approach: |
+          1. Run `uv init` to create basic project structure
+          2. Update `pyproject.toml` with dependencies and tool configurations
+          3. Create `src/config.py` with Config class using environment variables
+          4. Create `.gitignore` to exclude venv, __pycache__, ChromaDB data
+
+        code_structure: |
+          # src/config.py
+          import os
+          from pathlib import Path
+
+          class Config:
+              """Application configuration from environment variables."""
+              DB_PATH: Path = Path(os.getenv("CLAUDE_GRAPH_DB_PATH", str(Path.home() / ".claude_graph" / "chroma_db")))
+              OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+              EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
+              DEFAULT_CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
+              DEFAULT_CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "50"))
+              DEFAULT_MAX_RESULTS: int = int(os.getenv("MAX_RESULTS", "5"))
+              DEFAULT_MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "3000"))
+
+              @classmethod
+              def ensure_db_path_exists(cls) -> None:
+                  cls.DB_PATH.mkdir(parents=True, exist_ok=True)
+
+        key_points:
+          - point: "Use Path.home() for cross-platform compatibility"
+          - point: "All paths configurable via environment variables"
+          - point: "ensure_db_path_exists() is idempotent"
+
+      verification:
+        manual_testing:
+          - step: "Run uv init and verify pyproject.toml created"
+          - step: "Add dependencies with uv add"
+          - step: "Create config.py and verify imports work"
+
+        automated_tests:
+          command: "python -m pytest tests/unit/test_config.py -v"
+          expected_output: "All 3 tests pass"
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m isort src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_config.py -v
+            description: "Complete quality check pipeline for Python"
+            exit_on_failure: true
+
+      commit:
+        type: "chore"
+        message: "initialize Python project with uv and configuration"
+        body: |
+          - Add pyproject.toml with dependencies and tool configs
+          - Create Config class for environment-based configuration
+          - Add .gitignore for Python project
+          - Set up pytest, mypy, black, ruff, isort
+        files:
+          - "pyproject.toml"
+          - "src/config.py"
+          - "src/__init__.py"
+          - "tests/unit/test_config.py"
+          - "tests/__init__.py"
+          - ".gitignore"
+
+    - task_number: 2
+      type: "component"
+      name: "Token Counter Implementation"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "src/chunking/token_counter.py"
+        - "tests/unit/test_token_counter.py"
+      depends_on: [1]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "TokenCounter uses tiktoken with cl100k_base encoding"
+        - "count() returns accurate token counts"
+        - "count_cached() provides caching for performance"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_token_counter.py -v"
+
+      description: |
+        Implement accurate token counting using tiktoken with Claude's encoding.
+        This is critical for chunk sizing and budget management.
+
+      test_first:
+        test_file: "tests/unit/test_token_counter.py"
+        structure:
+          - "test_token_counter_initialization()"
+          - "test_count_simple_text()"
+          - "test_count_unicode_text()"
+          - "test_count_cached_uses_cache()"
+          - "test_count_vs_naive_word_count()"
+        example_skeleton: |
+          import pytest
+          from chunking.token_counter import TokenCounter
+
+          def test_token_counter_initialization():
+              counter = TokenCounter()
+              assert counter.encoding.name == "cl100k_base"
+
+          def test_count_simple_text():
+              counter = TokenCounter()
+              assert counter.count("") == 0
+              assert counter.count("Hello") == 1
+              assert counter.count("Hello, world!") == 4
+
+          def test_count_cached_uses_cache():
+              counter = TokenCounter()
+              text = "This is a test."
+              count1 = counter.count_cached(text)
+              count2 = counter.count_cached(text)
+              assert count1 == count2
+              cache_info = counter.count_cached.cache_info()
+              assert cache_info.hits > 0
+
+      implementation:
+        code_structure: |
+          # src/chunking/token_counter.py
+          import tiktoken
+          from functools import lru_cache
+
+          class TokenCounter:
+              def __init__(self, encoding_name: str = "cl100k_base"):
+                  self.encoding = tiktoken.get_encoding(encoding_name)
+
+              def count(self, text: str) -> int:
+                  return len(self.encoding.encode(text))
+
+              @lru_cache(maxsize=1024)
+              def count_cached(self, text: str) -> int:
+                  return self.count(text)
+
+      verification:
+        automated_tests:
+          command: "python -m pytest tests/unit/test_token_counter.py -v"
+          expected_output: "All 5 tests pass"
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m isort src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_token_counter.py -v --cov=src/chunking
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement token counter with tiktoken"
+        files:
+          - "src/chunking/__init__.py"
+          - "src/chunking/token_counter.py"
+          - "tests/unit/test_token_counter.py"
+
+    - task_number: 3
+      type: "component"
+      name: "Markdown Chunker Implementation"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "src/chunking/markdown_chunker.py"
+        - "tests/unit/test_markdown_chunker.py"
+      depends_on: [2]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "MarkdownChunker splits by headers while preserving structure"
+        - "Chunks respect 512 token limit"
+        - "50 token overlap between chunks"
+        - "Code blocks and lists not split"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_markdown_chunker.py -v"
+
+      description: |
+        Implement intelligent markdown-aware chunking that splits documents by structure
+        (headers, code blocks, lists) while respecting token limits.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_markdown_chunker.py -v --cov=src/chunking
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement markdown-aware chunker"
+        files:
+          - "src/chunking/markdown_chunker.py"
+          - "tests/unit/test_markdown_chunker.py"
+
+    - task_number: 4
+      type: "component"
+      name: "Ollama Embedding Client"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "src/embeddings/ollama_client.py"
+        - "tests/unit/test_ollama_client.py"
+      depends_on: [1]
+      estimated_time: "45m"
+
+      success_criteria:
+        - "OllamaEmbeddingClient connects to local Ollama service"
+        - "Retry logic with exponential backoff implemented"
+        - "Helpful error messages for troubleshooting"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_ollama_client.py -v"
+
+      description: |
+        Implement robust Ollama client for generating embeddings with retry logic
+        and graceful error handling.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_ollama_client.py -v --cov=src/embeddings
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement Ollama embedding client with retry logic"
+        files:
+          - "src/embeddings/__init__.py"
+          - "src/embeddings/ollama_client.py"
+          - "tests/unit/test_ollama_client.py"
+
+    - task_number: 5
+      type: "component"
+      name: "ChromaDB Storage Layer"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "src/storage/chroma_store.py"
+        - "tests/unit/test_chroma_store.py"
+      depends_on: [1, 4]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "ChromaStore persists chunks with embeddings to ChromaDB"
+        - "Semantic query returns results with similarity scores"
+        - "delete_by_path() removes all chunks for a file"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_chroma_store.py -v"
+
+      description: |
+        Implement persistent vector storage using ChromaDB for document chunks,
+        embeddings, and metadata.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_chroma_store.py -v --cov=src/storage
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement ChromaDB storage layer"
+        files:
+          - "src/storage/__init__.py"
+          - "src/storage/chroma_store.py"
+          - "tests/unit/test_chroma_store.py"
+
+    - task_number: 6
+      type: "component"
+      name: "Document Model and Metadata"
+      agent: "python-pro"
+      worktree_group: "chain-1"
+      files:
+        - "src/models/document.py"
+        - "tests/unit/test_document_model.py"
+      depends_on: [1]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "Document model with file_path, content, hash fields"
+        - "Chunk model with text and metadata fields"
+        - "Pydantic validation for all models"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_document_model.py -v"
+
+      description: |
+        Define data models for documents and chunks using Pydantic for validation.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_document_model.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "add document and chunk data models"
+        files:
+          - "src/models/__init__.py"
+          - "src/models/document.py"
+          - "tests/unit/test_document_model.py"
+
+    - task_number: 7
+      type: "component"
+      name: "File Hash Calculator"
+      agent: "python-pro"
+      worktree_group: "chain-2"
+      files:
+        - "src/indexing/hash_calculator.py"
+        - "tests/unit/test_hash_calculator.py"
+      depends_on: [1]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "calculate_hash() returns SHA-256 hash of file content"
+        - "Hash changes when file content changes"
+        - "Hash remains same for identical content"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_hash_calculator.py -v"
+
+      description: |
+        Implement SHA-256 hash calculator for content deduplication.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_hash_calculator.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "add SHA-256 hash calculator for deduplication"
+        files:
+          - "src/indexing/__init__.py"
+          - "src/indexing/hash_calculator.py"
+          - "tests/unit/test_hash_calculator.py"
+
+    - task_number: 8
+      type: "integration"
+      name: "Document Indexer"
+      agent: "python-pro"
+      worktree_group: "chain-2"
+      files:
+        - "src/indexing/document_indexer.py"
+        - "tests/unit/test_document_indexer.py"
+      depends_on: [3, 5, 7]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "index_document() chunks file and stores in ChromaDB"
+        - "Deduplication: skip if hash unchanged"
+        - "Re-indexing: delete old chunks before adding new"
+
+      integration_criteria:
+        - "MarkdownChunker successfully splits document (Task 3)"
+        - "ChromaStore persists chunks with embeddings (Task 5)"
+        - "HashCalculator generates consistent hashes (Task 7)"
+        - "All three components work together in single workflow"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_document_indexer.py -v"
+
+      description: |
+        Implement document indexer that orchestrates chunking, embedding, and storage.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_document_indexer.py -v --cov=src/indexing
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement document indexer with deduplication"
+        files:
+          - "src/indexing/document_indexer.py"
+          - "tests/unit/test_document_indexer.py"
+
+    - task_number: 9
+      type: "component"
+      name: "Batch Indexing"
+      agent: "python-pro"
+      worktree_group: "chain-2"
+      files:
+        - "src/indexing/batch_indexer.py"
+        - "tests/unit/test_batch_indexer.py"
+      depends_on: [8]
+      estimated_time: "45m"
+
+      success_criteria:
+        - "batch_index() processes multiple files efficiently"
+        - "Progress tracking for large batches"
+        - "Error handling: continue on individual file failures"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_batch_indexer.py -v"
+
+      description: |
+        Implement batch indexing for processing multiple documents efficiently.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_batch_indexer.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "add batch indexing for multiple documents"
+        files:
+          - "src/indexing/batch_indexer.py"
+          - "tests/unit/test_batch_indexer.py"
+
+    - task_number: 10
+      type: "component"
+      name: "Query Engine"
+      agent: "python-pro"
+      worktree_group: "chain-3"
+      files:
+        - "src/query/query_engine.py"
+        - "tests/unit/test_query_engine.py"
+      depends_on: [5]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "search() returns relevant chunks with similarity scores"
+        - "Respects max_results parameter"
+        - "Respects max_tokens soft limit"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_query_engine.py -v"
+
+      description: |
+        Implement semantic search engine that queries ChromaDB and formats results.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_query_engine.py -v --cov=src/query
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement semantic query engine"
+        files:
+          - "src/query/__init__.py"
+          - "src/query/query_engine.py"
+          - "tests/unit/test_query_engine.py"
+
+    - task_number: 11
+      type: "component"
+      name: "Result Ranking and Filtering"
+      agent: "python-pro"
+      worktree_group: "chain-3"
+      files:
+        - "src/query/result_ranker.py"
+        - "tests/unit/test_result_ranker.py"
+      depends_on: [10]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "rank_results() sorts by similarity score"
+        - "filter_by_tokens() enforces max_tokens limit"
+        - "format_for_claude() returns chunks with metadata"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_result_ranker.py -v"
+
+      description: |
+        Implement result ranking and filtering logic for query results.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_result_ranker.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "add result ranking and token filtering"
+        files:
+          - "src/query/result_ranker.py"
+          - "tests/unit/test_result_ranker.py"
+
+    - task_number: 12
+      type: "component"
+      name: "MCP Server Skeleton"
+      agent: "python-pro"
+      worktree_group: "chain-4"
+      files:
+        - "src/mcp_server/server.py"
+        - "tests/unit/test_mcp_server.py"
+      depends_on: [1]
+      estimated_time: "45m"
+
+      success_criteria:
+        - "MCP server initializes and runs"
+        - "Server exposes tool list endpoint"
+        - "Health check endpoint works"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_mcp_server.py -v"
+
+      description: |
+        Create MCP server skeleton using MCP SDK.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_mcp_server.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "create MCP server skeleton"
+        files:
+          - "src/mcp_server/server.py"
+          - "tests/unit/test_mcp_server.py"
+
+    - task_number: 13
+      type: "integration"
+      name: "MCP Tools Implementation"
+      agent: "python-pro"
+      worktree_group: "chain-4"
+      files:
+        - "src/mcp_server/tools.py"
+        - "tests/unit/test_mcp_tools.py"
+      depends_on: [8, 10, 12]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "index_document tool indexes single file"
+        - "batch_index tool indexes multiple files"
+        - "semantic_search tool queries and returns results"
+
+      integration_criteria:
+        - "Tools call DocumentIndexer from Task 8 correctly"
+        - "Tools call QueryEngine from Task 10 correctly"
+        - "Tools integrate with MCP Server from Task 12"
+        - "All MCP tool endpoints work end-to-end"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_mcp_tools.py -v"
+
+      description: |
+        Implement MCP tools for indexing and querying.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_mcp_tools.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "implement MCP tools for indexing and search"
+        files:
+          - "src/mcp_server/tools.py"
+          - "tests/unit/test_mcp_tools.py"
+
+    - task_number: 14
+      type: "component"
+      name: "MCP Server Configuration"
+      agent: "python-pro"
+      worktree_group: "chain-4"
+      files:
+        - "src/mcp_server/__main__.py"
+        - "tests/unit/test_mcp_config.py"
+      depends_on: [13]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "Server starts with python -m mcp_server"
+        - "Configuration loaded from environment"
+        - "Logging configured properly"
+
+      test_commands:
+        - "python -m pytest tests/unit/test_mcp_config.py -v"
+
+      description: |
+        Configure MCP server entry point and runtime configuration.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black src/ tests/ &&
+              python -m mypy src/ &&
+              python -m pytest tests/unit/test_mcp_config.py -v
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "configure MCP server entry point"
+        files:
+          - "src/mcp_server/__main__.py"
+          - "tests/unit/test_mcp_config.py"
+
+    - task_number: 15
+      type: "integration"
+      name: "Integration Tests"
+      agent: "test-automator"
+      worktree_group: "independent-1"
+      files:
+        - "tests/integration/test_end_to_end.py"
+      depends_on: [14]
+      estimated_time: "1h"
+
+      success_criteria:
+        - "End-to-end test: index document and query"
+        - "Test with real ChromaDB and Ollama"
+        - "Verify deduplication works"
+
+      integration_criteria:
+        - "MCP server from Task 14 starts successfully"
+        - "Complete workflow: index → store → query → retrieve works"
+        - "All layers integrate: chunking → embedding → storage → query"
+        - "Real Ollama and ChromaDB services work with full stack"
+
+      test_commands:
+        - "python -m pytest tests/integration/ -v"
+
+      description: |
+        Create integration tests for end-to-end workflows.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black tests/ &&
+              python -m pytest tests/integration/ -v
+            exit_on_failure: true
+
+      commit:
+        type: "test"
+        message: "add end-to-end integration tests"
+        files:
+          - "tests/integration/test_end_to_end.py"
+          - "tests/integration/__init__.py"
+
+    - task_number: 16
+      type: "component"
+      name: "Documentation and README"
+      agent: "technical-writer"
+      worktree_group: "independent-2"
+      files:
+        - "README.md"
+        - "docs/usage.md"
+      depends_on: []
+      estimated_time: "45m"
+
+      success_criteria:
+        - "README with setup instructions"
+        - "Usage examples for all MCP tools"
+        - "Configuration reference"
+
+      test_commands: []
+
+      description: |
+        Create comprehensive documentation for the project.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: "echo 'Documentation task - no code quality checks'"
+            exit_on_failure: false
+
+      commit:
+        type: "docs"
+        message: "add README and usage documentation"
+        files:
+          - "README.md"
+          - "docs/usage.md"
+
+    - task_number: 17
+      type: "component"
+      name: "MCP Deployment Configuration"
+      agent: "python-pro"
+      worktree_group: "independent-3"
+      files:
+        - "config/mcp_config.json"
+      depends_on: []
+      estimated_time: "15m"
+
+      success_criteria:
+        - "MCP config at ~/.claude/config/mcp.json format"
+        - "Server command and environment variables documented"
+
+      test_commands: []
+
+      description: |
+        Create MCP server configuration for Claude Code integration.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: "cat config/mcp_config.json | python -m json.tool"
+            exit_on_failure: true
+
+      commit:
+        type: "chore"
+        message: "add MCP deployment configuration"
+        files:
+          - "config/mcp_config.json"
+          - "config/README.md"
+
+    - task_number: 18
+      type: "component"
+      name: "Initial AI Docs Indexing"
+      agent: "python-pro"
+      worktree_group: "independent-4"
+      files:
+        - "scripts/index_ai_docs.py"
+      depends_on: [9]
+      estimated_time: "30m"
+
+      success_criteria:
+        - "Script indexes ~/.claude/commands/ai_docs/*.md"
+        - "Progress reporting during indexing"
+        - "Verification: can query indexed docs"
+
+      test_commands:
+        - "python scripts/index_ai_docs.py"
+
+      description: |
+        Create script to index Claude Code AI documentation on first run.
+
+      code_quality:
+        python:
+          full_quality_pipeline:
+            command: |
+              python -m black scripts/ &&
+              python -m mypy scripts/ &&
+              python scripts/index_ai_docs.py --dry-run
+            exit_on_failure: true
+
+      commit:
+        type: "feat"
+        message: "add script to index AI docs"
+        files:
+          - "scripts/index_ai_docs.py"
+          - "scripts/__init__.py"
+  testing_strategy:
+    unit_tests:
+      location: "tests/unit/"
+      naming_convention: "test_*.py"
+      run_command: "python -m pytest tests/unit/ -v"
+      coverage_target: "80%"
+      coverage_command: "python -m pytest --cov=src --cov-report=term-missing"
+
+    integration_tests:
+      location: "tests/integration/"
+      what_to_test:
+        - "End-to-end document indexing flow"
+        - "Semantic query with real ChromaDB and Ollama"
+        - "MCP server integration with all tools"
+      run_command: "python -m pytest tests/integration/ -v"
+
+    test_design_principles:
+      patterns_to_use:
+        - pattern: "Arrange-Act-Assert pattern"
+        - pattern: "Factory pattern for test data"
+        - pattern: "Mock external services (Ollama)"
+
+      mocking_guidelines:
+        mock_these:
+          - "Ollama embeddings API calls"
+          - "File system operations (use tmp_path)"
+        dont_mock_these:
+          - "TokenCounter (test actual tiktoken)"
+          - "MarkdownChunker logic"
+          - "ChromaDB in unit tests (use temporary database)"
+
+  commit_strategy:
+    message_format:
+      pattern: "type: brief description in present tense"
+      examples:
+        - "feat: add user authentication with JWT"
+        - "fix: resolve race condition in async handler"
+        - "test: add edge case coverage for validation"
+
+    commit_guidelines:
+      - "Keep commits atomic - one logical change per commit"
+      - "Write clear messages in imperative mood"
+      - "Commit after each completed task"
+      - "Each worktree maintains its own commit history"
+
+  resources:
+    existing_code:
+      - type: "Critical Patterns section"
+        path: "docs/plans/mcp-document-indexing.md"
+        note: "Copy-paste-ready code templates for Ollama client, token counter, config"
+
+    documentation:
+      - type: "MCP SDK documentation"
+        link: "https://github.com/anthropics/anthropic-sdk-python"
+        relevance: "MCP server implementation patterns"
+
+      - type: "ChromaDB documentation"
+        link: "https://docs.trychroma.com/"
+        relevance: "Vector storage and querying"
+
+      - type: "Ollama documentation"
+        link: "https://ollama.ai/docs"
+        relevance: "Local embedding generation"
+
+    validation_checklist:
+      - item: "All tests pass"
+        command: "python -m pytest"
+        checked: false
+
+      - item: "Type checker passes"
+        command: "python -m mypy src/"
+        checked: false
+
+      - item: "Code formatted correctly"
+        command: "python -m black --check src/ tests/"
+        checked: false
+
+      - item: "No 'from src.' imports"
+        command: "! grep -r 'from src\\.' . --include='*.py'"
+        checked: false
+
+      - item: "80% test coverage achieved"
+        command: "python -m pytest --cov=src --cov-report=term-missing"
+        checked: false
+
