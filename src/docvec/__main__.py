@@ -123,13 +123,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=512,
+        default=256,
         help="Maximum tokens per chunk",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=32,
+        default=16,
         help="Batch size for embedding generation",
     )
 
@@ -359,7 +359,7 @@ def handle_shutdown(signum, frame):
     sys.exit(0)
 
 
-async def main() -> None:
+def main() -> None:
     """Main entry point for MCP server.
 
     Workflow:
@@ -400,7 +400,8 @@ async def main() -> None:
 
         # Run MCP server with stdio transport
         # This blocks until server shuts down
-        await mcp.run(transport="stdio")
+        # Note: mcp.run() is synchronous and manages its own event loop
+        mcp.run(transport="stdio")
 
     except Exception as e:
         logger.error(f"Server failed: {e}", exc_info=True)
@@ -408,4 +409,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

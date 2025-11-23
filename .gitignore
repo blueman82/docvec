@@ -56,3 +56,21 @@ logs/
 .dmypy.json
 dmypy.json
 /logs/
+
+# Internal docs but added with negative excursion when applicable
+docs/
+!docs/API.md
+!docs/ARCHITECTURE.md
+!docs/DEPLOYMENT.md
+
+# Database
+chroma_db
+
+# Conductor specifically 
+.conductor/
+
+# Claude Logs
+logs/
+
+# AI Counsel Transripts
+transcripts/

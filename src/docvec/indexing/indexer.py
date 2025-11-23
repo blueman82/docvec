@@ -15,6 +15,8 @@ from typing import Optional
 
 from vector_mcp.chunking.base import AbstractChunker, Chunk
 from vector_mcp.chunking.code_chunker import CodeChunker
+from vector_mcp.chunking.markdown_chunker import MarkdownChunker
+from vector_mcp.chunking.pdf_chunker import PDFChunker
 from vector_mcp.chunking.text_chunker import TextChunker
 from vector_mcp.embedding.ollama_client import OllamaClient, EmbeddingError
 from vector_mcp.storage.chroma_store import ChromaStore, StorageError
@@ -52,8 +54,8 @@ class Indexer:
         self,
         embedder: OllamaClient,
         storage: ChromaStore,
-        chunk_size: int = 512,
-        batch_size: int = 32,
+        chunk_size: int = 256,
+        batch_size: int = 16,
     ):
         """Initialize indexer with dependencies.
 
@@ -78,8 +80,10 @@ class Indexer:
 
         # Map file extensions to chunker classes
         self._chunker_map: dict[str, type[AbstractChunker]] = {
-            ".py": CodeChunker,
+            ".md": MarkdownChunker,
+            ".pdf": PDFChunker,
             ".txt": TextChunker,
+            ".py": CodeChunker,
         }
 
     def index_document(self, file_path: Path) -> list[str]:
@@ -200,6 +204,8 @@ class Indexer:
         """Select appropriate chunker based on file extension.
 
         Strategy:
+        - .md -> MarkdownChunker
+        - .pdf -> PDFChunker
         - .py -> CodeChunker
         - .txt -> TextChunker
         - default -> TextChunker
@@ -214,14 +220,22 @@ class Indexer:
 
         chunker_class = self._chunker_map.get(suffix, TextChunker)
 
-        # Instantiate chunker
-        # CodeChunker uses different parameters than TextChunker
+        # Instantiate chunker with appropriate parameters
+        # Use character-based chunk_size for most chunkers (4 chars per token approximation)
+        char_chunk_size = self.chunk_size * 4
+
         if chunker_class == CodeChunker:
+            # CodeChunker uses line-based chunk_size for fallback
             return CodeChunker(chunk_size=100)
+        elif chunker_class == MarkdownChunker:
+            # MarkdownChunker uses character-based chunk_size
+            return MarkdownChunker(chunk_size=char_chunk_size, chunk_overlap=200)
+        elif chunker_class == PDFChunker:
+            # PDFChunker uses character-based chunk_size
+            return PDFChunker(chunk_size=char_chunk_size, chunk_overlap=200)
         else:
             # TextChunker uses character-based chunk_size
-            # Use a reasonable character limit (4 chars per token approximation)
-            return TextChunker(chunk_size=self.chunk_size * 4, chunk_overlap=200)
+            return TextChunker(chunk_size=char_chunk_size, chunk_overlap=200)
 
     def _validate_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """Validate chunks meet token constraints.
