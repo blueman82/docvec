@@ -237,16 +237,20 @@ def test_something(mock_embedder, mock_storage):
 
 ## Configuration
 
-All configuration via CLI arguments (parsed in `parse_arguments()`):
-- `--host`: Ollama server URL
-- `--model`: Embedding model name
-- `--db-path`: ChromaDB storage directory
-- `--collection`: Collection name
-- `--chunk-size`: Max tokens per chunk
-- `--batch-size`: Embedding batch size
-- `--log-level`: Logging verbosity
+Configuration is done via CLI arguments (takes precedence) or environment variables with the `DOCVEC_` prefix:
 
-Default values in argument parser provide sensible defaults for development.
+| Environment Variable | CLI Argument | Default | Description |
+|----------|----------|---------|-------------|
+| `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
+| `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
+| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
+| `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
+| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `256` | Maximum tokens per chunk |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `16` | Batch size for embedding generation |
+| `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
+| `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
+
+CLI arguments take precedence over environment variables. All configuration is parsed in `parse_arguments()` in `__main__.py`.
 
 ## File Paths and Structure
 
