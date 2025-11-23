@@ -10,7 +10,7 @@ This module tests the MCP server infrastructure including:
 
 import pytest
 
-from src.vector_mcp.mcp_server import MCPServer, ToolDefinition
+from docvec.mcp_server import MCPServer, ToolDefinition
 
 
 class TestToolDefinition:

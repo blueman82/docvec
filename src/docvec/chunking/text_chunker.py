@@ -3,7 +3,7 @@
 import re
 from typing import Optional
 
-from vector_mcp.chunking.base import AbstractChunker, Chunk
+from docvec.chunking.base import AbstractChunker, Chunk
 
 
 class TextChunker(AbstractChunker):

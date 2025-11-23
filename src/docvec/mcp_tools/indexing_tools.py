@@ -12,8 +12,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from vector_mcp.indexing.batch_processor import BatchProcessor, BatchResult
-from vector_mcp.indexing.indexer import Indexer, IndexingError
+from docvec.indexing.batch_processor import BatchProcessor, BatchResult
+from docvec.indexing.indexer import Indexer, IndexingError
 
 logger = logging.getLogger(__name__)
 

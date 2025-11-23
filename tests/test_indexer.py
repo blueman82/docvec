@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from vector_mcp.chunking.base import Chunk
-from vector_mcp.embedding.ollama_client import EmbeddingError
-from vector_mcp.indexing.indexer import Indexer, IndexingError
-from vector_mcp.storage.chroma_store import StorageError
+from docvec.chunking.base import Chunk
+from docvec.embedding.ollama_client import EmbeddingError
+from docvec.indexing.indexer import Indexer, IndexingError
+from docvec.storage.chroma_store import StorageError
 
 
 @pytest.fixture
@@ -187,7 +187,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_python_file(self, indexer, tmp_path):
         """Test selecting CodeChunker for .py files."""
-        from vector_mcp.chunking.code_chunker import CodeChunker
+        from docvec.chunking.code_chunker import CodeChunker
 
         file_path = tmp_path / "test.py"
         file_path.touch()
@@ -197,7 +197,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_text_file(self, indexer, tmp_path):
         """Test selecting TextChunker for .txt files."""
-        from vector_mcp.chunking.text_chunker import TextChunker
+        from docvec.chunking.text_chunker import TextChunker
 
         file_path = tmp_path / "test.txt"
         file_path.touch()
@@ -207,7 +207,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_default_fallback(self, indexer, tmp_path):
         """Test default fallback to TextChunker for unknown extensions."""
-        from vector_mcp.chunking.text_chunker import TextChunker
+        from docvec.chunking.text_chunker import TextChunker
 
         file_path = tmp_path / "test.unknown"
         file_path.touch()
@@ -217,7 +217,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_markdown_file(self, indexer, tmp_path):
         """Test selecting MarkdownChunker for .md files."""
-        from vector_mcp.chunking.markdown_chunker import MarkdownChunker
+        from docvec.chunking.markdown_chunker import MarkdownChunker
 
         file_path = tmp_path / "test.md"
         file_path.touch()
@@ -227,7 +227,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_pdf_file(self, indexer, tmp_path):
         """Test selecting PDFChunker for .pdf files."""
-        from vector_mcp.chunking.pdf_chunker import PDFChunker
+        from docvec.chunking.pdf_chunker import PDFChunker
 
         file_path = tmp_path / "test.pdf"
         file_path.touch()
@@ -237,7 +237,7 @@ class TestIndexerChunkerSelection:
 
     def test_select_chunker_case_insensitive(self, indexer, tmp_path):
         """Test that extension matching is case-insensitive."""
-        from vector_mcp.chunking.code_chunker import CodeChunker
+        from docvec.chunking.code_chunker import CodeChunker
 
         file_path = tmp_path / "test.PY"
         file_path.touch()
@@ -505,7 +505,7 @@ class TestIndexerDocumentIndexing:
         indexer.embedder.embed_batch.assert_called_once()
         indexer.storage.add.assert_called_once()
 
-    @patch('vector_mcp.chunking.pdf_chunker.PdfReader')
+    @patch('docvec.chunking.pdf_chunker.PdfReader')
     def test_index_document_pdf_file(self, mock_pdf_reader, indexer, temp_pdf_file):
         """Test indexing a PDF file."""
         # Mock PDF reader to return text content

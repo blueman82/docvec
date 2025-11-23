@@ -13,9 +13,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from vector_mcp.indexing.batch_processor import BatchProcessor, BatchResult
-from vector_mcp.indexing.indexer import Indexer, IndexingError
-from vector_mcp.mcp_tools.indexing_tools import (
+from docvec.indexing.batch_processor import BatchProcessor, BatchResult
+from docvec.indexing.indexer import Indexer, IndexingError
+from docvec.mcp_tools.indexing_tools import (
     IndexingTools,
     INDEX_FILE_SCHEMA,
     INDEX_DIRECTORY_SCHEMA,

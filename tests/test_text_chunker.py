@@ -2,8 +2,8 @@
 
 import pytest
 
-from vector_mcp.chunking.base import Chunk
-from vector_mcp.chunking.text_chunker import TextChunker
+from docvec.chunking.base import Chunk
+from docvec.chunking.text_chunker import TextChunker
 
 
 class TestTextChunkerInit:
@@ -368,7 +368,7 @@ Conclusion paragraph. This wraps up the discussion. It summarizes key points."""
 
     def test_chunker_implements_abstract_interface(self):
         """Test that TextChunker properly implements AbstractChunker."""
-        from vector_mcp.chunking.base import AbstractChunker
+        from docvec.chunking.base import AbstractChunker
 
         chunker = TextChunker()
         assert isinstance(chunker, AbstractChunker)

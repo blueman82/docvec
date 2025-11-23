@@ -13,14 +13,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.vector_mcp.embedding.ollama_client import EmbeddingError, OllamaClient
-from src.vector_mcp.mcp_tools.query_tools import (
+from docvec.embedding.ollama_client import EmbeddingError, OllamaClient
+from docvec.mcp_tools.query_tools import (
     QueryError,
     QueryResult,
     QueryTools,
     TokenCounter,
 )
-from src.vector_mcp.storage.chroma_store import ChromaStore, StorageError
+from docvec.storage.chroma_store import ChromaStore, StorageError
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from typing import Optional
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from vector_mcp.chunking.base import AbstractChunker, Chunk
+from docvec.chunking.base import AbstractChunker, Chunk
 
 logger = logging.getLogger(__name__)
 

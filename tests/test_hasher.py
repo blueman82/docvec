@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vector_mcp.deduplication.hasher import DocumentHasher
+from docvec.deduplication.hasher import DocumentHasher
 
 
 @pytest.fixture

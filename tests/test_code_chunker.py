@@ -2,8 +2,8 @@
 
 import pytest
 
-from vector_mcp.chunking.base import Chunk
-from vector_mcp.chunking.code_chunker import CodeChunker
+from docvec.chunking.base import Chunk
+from docvec.chunking.code_chunker import CodeChunker
 
 
 class TestCodeChunker:

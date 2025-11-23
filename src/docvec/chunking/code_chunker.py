@@ -4,7 +4,7 @@ import ast
 import logging
 from typing import Optional
 
-from vector_mcp.chunking.base import AbstractChunker, Chunk
+from docvec.chunking.base import AbstractChunker, Chunk
 
 logger = logging.getLogger(__name__)
 

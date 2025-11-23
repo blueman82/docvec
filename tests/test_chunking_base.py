@@ -2,7 +2,7 @@
 
 import pytest
 
-from vector_mcp.chunking.base import AbstractChunker, Chunk
+from docvec.chunking.base import AbstractChunker, Chunk
 
 
 class TestChunk:

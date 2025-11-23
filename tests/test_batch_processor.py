@@ -5,9 +5,9 @@ from unittest.mock import Mock, MagicMock
 
 import pytest
 
-from vector_mcp.deduplication.hasher import DocumentHasher
-from vector_mcp.indexing.batch_processor import BatchProcessor, BatchResult
-from vector_mcp.indexing.indexer import IndexingError
+from docvec.deduplication.hasher import DocumentHasher
+from docvec.indexing.batch_processor import BatchProcessor, BatchResult
+from docvec.indexing.indexer import IndexingError
 
 
 @pytest.fixture
@@ -211,7 +211,7 @@ class TestBatchProcessorDeduplication:
 
     def test_is_duplicate_storage_error(self, processor, mock_storage, tmp_path):
         """Test handling storage error during duplicate check."""
-        from vector_mcp.storage.chroma_store import StorageError
+        from docvec.storage.chroma_store import StorageError
 
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")

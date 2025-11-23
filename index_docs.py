@@ -2,11 +2,11 @@
 """Index all documentation files in docs/ and docs/examples"""
 import asyncio
 from pathlib import Path
-from vector_mcp.embedding.ollama_client import OllamaClient
-from vector_mcp.storage.chroma_store import ChromaStore
-from vector_mcp.indexing.batch_processor import BatchProcessor
-from vector_mcp.indexing.indexer import Indexer
-from vector_mcp.deduplication.hasher import DocumentHasher
+from docvec.embedding.ollama_client import OllamaClient
+from docvec.storage.chroma_store import ChromaStore
+from docvec.indexing.batch_processor import BatchProcessor
+from docvec.indexing.indexer import Indexer
+from docvec.deduplication.hasher import DocumentHasher
 
 async def main():
     # Initialize components

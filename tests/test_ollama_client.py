@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 import requests
 
-from vector_mcp.embedding.ollama_client import (
+from docvec.embedding.ollama_client import (
     OllamaClient,
     EmbeddingError,
     retry_with_backoff,

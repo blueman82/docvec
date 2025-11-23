@@ -13,13 +13,13 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from vector_mcp.chunking.base import AbstractChunker, Chunk
-from vector_mcp.chunking.code_chunker import CodeChunker
-from vector_mcp.chunking.markdown_chunker import MarkdownChunker
-from vector_mcp.chunking.pdf_chunker import PDFChunker
-from vector_mcp.chunking.text_chunker import TextChunker
-from vector_mcp.embedding.ollama_client import OllamaClient, EmbeddingError
-from vector_mcp.storage.chroma_store import ChromaStore, StorageError
+from docvec.chunking.base import AbstractChunker, Chunk
+from docvec.chunking.code_chunker import CodeChunker
+from docvec.chunking.markdown_chunker import MarkdownChunker
+from docvec.chunking.pdf_chunker import PDFChunker
+from docvec.chunking.text_chunker import TextChunker
+from docvec.embedding.ollama_client import OllamaClient, EmbeddingError
+from docvec.storage.chroma_store import ChromaStore, StorageError
 
 logger = logging.getLogger(__name__)
 

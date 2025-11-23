@@ -1,1 +1,1 @@
-"""Test suite for vector_mcp."""
+"""Test suite for docvec."""

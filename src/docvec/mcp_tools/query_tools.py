@@ -10,8 +10,8 @@ This module provides query tools that embed user queries and search ChromaDB wit
 from dataclasses import dataclass
 from typing import Optional
 
-from src.vector_mcp.embedding.ollama_client import EmbeddingError, OllamaClient
-from src.vector_mcp.storage.chroma_store import ChromaStore, StorageError
+from docvec.embedding.ollama_client import EmbeddingError, OllamaClient
+from docvec.storage.chroma_store import ChromaStore, StorageError
 
 
 class QueryError(Exception):

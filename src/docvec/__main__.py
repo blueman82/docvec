@@ -8,7 +8,7 @@ This module provides the main entry point for the MCP server with:
 - Comprehensive logging throughout
 
 Usage:
-    python -m vector_mcp [options]
+    python -m docvec [options]
 
     Options:
         --host HOST         Ollama server host (default: http://localhost:11434)
@@ -28,13 +28,13 @@ from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from vector_mcp.deduplication.hasher import DocumentHasher
-from vector_mcp.embedding.ollama_client import OllamaClient
-from vector_mcp.indexing.batch_processor import BatchProcessor
-from vector_mcp.indexing.indexer import Indexer
-from vector_mcp.mcp_tools.indexing_tools import IndexingTools
-from vector_mcp.mcp_tools.query_tools import QueryTools
-from vector_mcp.storage.chroma_store import ChromaStore
+from docvec.deduplication.hasher import DocumentHasher
+from docvec.embedding.ollama_client import OllamaClient
+from docvec.indexing.batch_processor import BatchProcessor
+from docvec.indexing.indexer import Indexer
+from docvec.mcp_tools.indexing_tools import IndexingTools
+from docvec.mcp_tools.query_tools import QueryTools
+from docvec.storage.chroma_store import ChromaStore
 
 # Initialize FastMCP server
 mcp = FastMCP("vector-mcp")

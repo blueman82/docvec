@@ -21,17 +21,17 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from vector_mcp.chunking.code_chunker import CodeChunker
-from vector_mcp.chunking.markdown_chunker import MarkdownChunker
-from vector_mcp.chunking.pdf_chunker import PDFChunker
-from vector_mcp.chunking.text_chunker import TextChunker
-from vector_mcp.deduplication.hasher import DocumentHasher
-from vector_mcp.embedding.ollama_client import OllamaClient
-from vector_mcp.indexing.batch_processor import BatchProcessor
-from vector_mcp.indexing.indexer import Indexer, IndexingError
-from vector_mcp.mcp_tools.indexing_tools import IndexingTools
-from vector_mcp.mcp_tools.query_tools import QueryTools
-from vector_mcp.storage.chroma_store import ChromaStore
+from docvec.chunking.code_chunker import CodeChunker
+from docvec.chunking.markdown_chunker import MarkdownChunker
+from docvec.chunking.pdf_chunker import PDFChunker
+from docvec.chunking.text_chunker import TextChunker
+from docvec.deduplication.hasher import DocumentHasher
+from docvec.embedding.ollama_client import OllamaClient
+from docvec.indexing.batch_processor import BatchProcessor
+from docvec.indexing.indexer import Indexer, IndexingError
+from docvec.mcp_tools.indexing_tools import IndexingTools
+from docvec.mcp_tools.query_tools import QueryTools
+from docvec.storage.chroma_store import ChromaStore
 
 logger = logging.getLogger(__name__)
 

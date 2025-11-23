@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from vector_mcp.deduplication.hasher import DocumentHasher
-from vector_mcp.indexing.indexer import Indexer, IndexingError
-from vector_mcp.storage.chroma_store import ChromaStore, StorageError
+from docvec.deduplication.hasher import DocumentHasher
+from docvec.indexing.indexer import Indexer, IndexingError
+from docvec.storage.chroma_store import ChromaStore, StorageError
 
 logger = logging.getLogger(__name__)
 

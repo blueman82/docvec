@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from vector_mcp.__main__ import (
+from docvec.__main__ import (
     initialize_components,
     parse_arguments,
     setup_logging,
@@ -135,13 +135,13 @@ class TestLoggingSetup:
 class TestComponentInitialization:
     """Test component initialization."""
 
-    @patch("vector_mcp.__main__.QueryTools")
-    @patch("vector_mcp.__main__.IndexingTools")
-    @patch("vector_mcp.__main__.BatchProcessor")
-    @patch("vector_mcp.__main__.Indexer")
-    @patch("vector_mcp.__main__.DocumentHasher")
-    @patch("vector_mcp.__main__.ChromaStore")
-    @patch("vector_mcp.__main__.OllamaClient")
+    @patch("docvec.__main__.QueryTools")
+    @patch("docvec.__main__.IndexingTools")
+    @patch("docvec.__main__.BatchProcessor")
+    @patch("docvec.__main__.Indexer")
+    @patch("docvec.__main__.DocumentHasher")
+    @patch("docvec.__main__.ChromaStore")
+    @patch("docvec.__main__.OllamaClient")
     def test_initialize_components_dependency_order(
         self,
         mock_ollama,
@@ -238,7 +238,7 @@ class TestComponentInitialization:
             storage=mock_chroma_instance,
         )
 
-    @patch("vector_mcp.__main__.OllamaClient")
+    @patch("docvec.__main__.OllamaClient")
     def test_initialize_components_health_check_warning(self, mock_ollama):
         """Test that health check failure logs a warning but continues."""
         # Setup mock to fail health check
@@ -257,17 +257,17 @@ class TestComponentInitialization:
         )
 
         # Should not raise exception
-        with patch("vector_mcp.__main__.ChromaStore"), \
-             patch("vector_mcp.__main__.DocumentHasher"), \
-             patch("vector_mcp.__main__.Indexer"), \
-             patch("vector_mcp.__main__.BatchProcessor"), \
-             patch("vector_mcp.__main__.IndexingTools"), \
-             patch("vector_mcp.__main__.QueryTools"):
+        with patch("docvec.__main__.ChromaStore"), \
+             patch("docvec.__main__.DocumentHasher"), \
+             patch("docvec.__main__.Indexer"), \
+             patch("docvec.__main__.BatchProcessor"), \
+             patch("docvec.__main__.IndexingTools"), \
+             patch("docvec.__main__.QueryTools"):
 
             components = initialize_components(args)
             assert "embedder" in components
 
-    @patch("vector_mcp.__main__.OllamaClient")
+    @patch("docvec.__main__.OllamaClient")
     def test_initialize_components_failure_raises_exception(self, mock_ollama):
         """Test that initialization failure raises exception."""
         # Make OllamaClient raise an exception
@@ -293,7 +293,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_index_file_handler_calls_indexing_tools(self):
         """Test that index_file handler delegates to IndexingTools."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         # Mock the indexing_tools global
         mock_tools = AsyncMock()
@@ -313,7 +313,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_index_file_handler_not_initialized(self):
         """Test that index_file returns error when not initialized."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         __main__.indexing_tools = None
 
@@ -325,7 +325,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_index_directory_handler_calls_indexing_tools(self):
         """Test that index_directory handler delegates to IndexingTools."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_tools = AsyncMock()
         mock_tools.index_directory.return_value = {
@@ -343,7 +343,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_search_handler_calls_query_tools(self):
         """Test that search handler delegates to QueryTools."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_tools = AsyncMock()
         mock_tools.search.return_value = {
@@ -361,7 +361,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_search_handler_handles_exception(self):
         """Test that search handler catches and formats exceptions."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_tools = AsyncMock()
         mock_tools.search.side_effect = Exception("Search failed")
@@ -376,7 +376,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_search_with_filters_handler(self):
         """Test search_with_filters handler."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_tools = AsyncMock()
         mock_tools.search_with_filters.return_value = {
@@ -396,7 +396,7 @@ class TestToolHandlers:
     @pytest.mark.asyncio
     async def test_search_with_budget_handler(self):
         """Test search_with_budget handler."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_tools = AsyncMock()
         mock_tools.search_with_budget.return_value = {
@@ -419,7 +419,7 @@ class TestSignalHandling:
     @patch("sys.exit")
     def test_handle_shutdown_calls_exit(self, mock_exit):
         """Test that handle_shutdown calls sys.exit."""
-        from vector_mcp.__main__ import handle_shutdown
+        from docvec.__main__ import handle_shutdown
 
         handle_shutdown(2, None)
 
@@ -432,7 +432,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_main_initialization_flow(self):
         """Test main function initialization flow."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         # Mock parse_arguments
         mock_args = argparse.Namespace(
@@ -446,10 +446,10 @@ class TestIntegration:
             log_level="INFO",
         )
 
-        with patch("vector_mcp.__main__.parse_arguments", return_value=mock_args), \
-             patch("vector_mcp.__main__.setup_logging"), \
-             patch("vector_mcp.__main__.initialize_components") as mock_init, \
-             patch("vector_mcp.__main__.mcp") as mock_mcp, \
+        with patch("docvec.__main__.parse_arguments", return_value=mock_args), \
+             patch("docvec.__main__.setup_logging"), \
+             patch("docvec.__main__.initialize_components") as mock_init, \
+             patch("docvec.__main__.mcp") as mock_mcp, \
              patch("signal.signal"):
 
             # Setup mock components
@@ -479,7 +479,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_main_handles_initialization_failure(self):
         """Test that main handles initialization failures gracefully."""
-        from vector_mcp import __main__
+        from docvec import __main__
 
         mock_args = argparse.Namespace(
             host="http://localhost:11434",
@@ -492,9 +492,9 @@ class TestIntegration:
             log_level="INFO",
         )
 
-        with patch("vector_mcp.__main__.parse_arguments", return_value=mock_args), \
-             patch("vector_mcp.__main__.setup_logging"), \
-             patch("vector_mcp.__main__.initialize_components") as mock_init, \
+        with patch("docvec.__main__.parse_arguments", return_value=mock_args), \
+             patch("docvec.__main__.setup_logging"), \
+             patch("docvec.__main__.initialize_components") as mock_init, \
              patch("sys.exit") as mock_exit:
 
             # Make initialization fail

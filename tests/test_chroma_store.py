@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from src.vector_mcp.storage.chroma_store import ChromaStore, StorageError
+from docvec.storage.chroma_store import ChromaStore, StorageError
 
 
 @pytest.fixture

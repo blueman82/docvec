@@ -2,8 +2,8 @@
 
 import pytest
 
-from vector_mcp.chunking.base import Chunk
-from vector_mcp.chunking.markdown_chunker import MarkdownChunker
+from docvec.chunking.base import Chunk
+from docvec.chunking.markdown_chunker import MarkdownChunker
 
 
 class TestMarkdownChunker:
