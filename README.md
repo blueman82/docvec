@@ -1,4 +1,4 @@
-# Vector Database MCP Server
+# DocVec - Document Vector Database
 
 A Model Context Protocol (MCP) server that provides semantic document indexing and retrieval using ChromaDB and local Ollama embeddings. Reduce token usage in Claude conversations by efficiently retrieving only relevant document chunks.
 
@@ -69,8 +69,8 @@ ollama pull mxbai-embed-large
 2. Install the MCP server:
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vector-mcp-server.git
-cd vector-mcp-server
+git clone https://github.com/yourusername/docvec.git
+cd docvec
 
 # Install dependencies using uv
 uv sync
@@ -82,11 +82,11 @@ Add to `~/.claude/config/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "vector-db": {
+    "docvec": {
       "command": "uv",
-      "args": ["run", "python", "-m", "vector_mcp"],
+      "args": ["run", "python", "-m", "docvec"],
       "env": {
-        "VECTOR_MCP_DB_PATH": "/Users/yourusername/.vector_mcp/chroma_db"
+        "DOCVEC_DB_PATH": "/Users/yourusername/.docvec/chroma_db"
       }
     }
   }
@@ -148,26 +148,27 @@ search_with_budget(query="deployment guide", max_tokens=2000)
 
 ## Configuration
 
-All configuration is done via environment variables with the `VECTOR_MCP_` prefix:
+Configuration is done via CLI arguments (takes precedence) or environment variables with the `DOCVEC_` prefix:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VECTOR_MCP_DB_PATH` | `~/.vector_mcp/chroma_db` | ChromaDB storage location |
-| `VECTOR_MCP_OLLAMA_HOST` | `http://localhost:11434` | Ollama API endpoint |
-| `VECTOR_MCP_EMBEDDING_MODEL` | `mxbai-embed-large` | Embedding model name |
-| `VECTOR_MCP_CHUNK_SIZE` | `512` | Maximum tokens per chunk |
-| `VECTOR_MCP_CHUNK_OVERLAP` | `50` | Token overlap between chunks |
-| `VECTOR_MCP_MAX_RESULTS` | `5` | Default search result limit |
-| `VECTOR_MCP_MAX_TOKENS` | `3000` | Default token budget for results |
+| Environment Variable | CLI Argument | Default | Description |
+|----------|----------|---------|-------------|
+| `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
+| `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
+| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
+| `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
+| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `256` | Maximum tokens per chunk |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `16` | Batch size for embedding generation |
+| `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
+| `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
 [↑ Back to top](#table-of-contents)
 
 ## Project Structure
 
 ```
-vector-mcp-server/
+docvec/
 ├── src/
-│   └── vector_mcp/
+│   └── docvec/
 │       ├── config.py              # Configuration management
 │       ├── token_counter.py       # Token counting with tiktoken
 │       ├── chunking/
@@ -213,12 +214,12 @@ vector-mcp-server/
 
 ### ChromaDB Permission Error
 
-**Error**: `Permission denied: ~/.vector_mcp/chroma_db`
+**Error**: `Permission denied: ~/.docvec/chroma_db`
 
 **Solution**:
-1. Create the directory manually: `mkdir -p ~/.vector_mcp/chroma_db`
-2. Set correct permissions: `chmod 755 ~/.vector_mcp`
-3. Or specify a different path via `VECTOR_MCP_DB_PATH`
+1. Create the directory manually: `mkdir -p ~/.docvec/chroma_db`
+2. Set correct permissions: `chmod 755 ~/.docvec`
+3. Or specify a different path via `DOCVEC_DB_PATH`
 
 [↑ Back to top](#table-of-contents)
 
@@ -238,9 +239,10 @@ vector-mcp-server/
 **Error**: `MemoryError during indexing`
 
 **Solution**:
-1. Reduce `VECTOR_MCP_CHUNK_SIZE` (e.g., from 512 to 256)
-2. Process files individually instead of batch indexing
-3. Increase system swap space
+1. Reduce `--chunk-size` (e.g., from 256 to 128) or set `DOCVEC_CHUNK_SIZE` environment variable
+2. Reduce `--batch-size` to process fewer embeddings at once
+3. Process files individually instead of batch indexing
+4. Increase system swap space
 
 [↑ Back to top](#table-of-contents)
 
@@ -262,7 +264,7 @@ vector-mcp-server/
 
 ```bash
 # Run all tests with coverage
-python -m pytest tests/ -v --cov=src/vector_mcp --cov-report=html
+python -m pytest tests/ -v --cov=src/docvec --cov-report=html
 
 # Run specific test file
 python -m pytest tests/test_indexer.py -v
@@ -329,8 +331,8 @@ Contributions are welcome! Please see CONTRIBUTING.md for guidelines.
 
 ## Support
 
-- Issues: https://github.com/yourusername/vector-mcp-server/issues
-- Discussions: https://github.com/yourusername/vector-mcp-server/discussions
-- Documentation: https://github.com/yourusername/vector-mcp-server/wiki
+- Issues: https://github.com/yourusername/docvec/issues
+- Discussions: https://github.com/yourusername/docvec/discussions
+- Documentation: https://github.com/yourusername/docvec/wiki
 
 [↑ Back to top](#table-of-contents)

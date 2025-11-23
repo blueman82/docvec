@@ -42,13 +42,13 @@ python -m pytest tests/test_integration.py -v
 ### Running the MCP Server
 ```bash
 # Run with default configuration
-python -m vector_mcp
+python -m docvec
 
 # Run with custom configuration
-python -m vector_mcp --host http://localhost:11434 --model nomic-embed-text --db-path ./my_chroma_db --log-level DEBUG
+python -m docvec --host http://localhost:11434 --model nomic-embed-text --db-path ./my_chroma_db --log-level DEBUG
 
 # View available CLI options
-python -m vector_mcp --help
+python -m docvec --help
 ```
 
 ### Code Quality
@@ -184,7 +184,7 @@ The initialization sequence in `initialize_components()` follows the dependency 
 
 ### Adding Support for a New File Format
 
-1. Create new chunker in `src/vector_mcp/chunking/`:
+1. Create new chunker in `src/docvec/chunking/`:
    ```python
    class MyFormatChunker(AbstractChunker):
        def chunk(self, content: str, source_file: str) -> list[Chunk]:

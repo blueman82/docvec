@@ -1,10 +1,10 @@
 # Architecture Documentation
 
-This document explains the design and architecture of the Vector Database MCP Server.
+This document explains the design and architecture of the DocVec server.
 
 ## System Overview
 
-The Vector Database MCP Server is a document indexing and retrieval system built on three core principles:
+DocVec is a document indexing and retrieval system built on three core principles:
 
 1. **Local-first**: All processing happens locally using Ollama embeddings
 2. **Privacy-preserving**: No data sent to external APIs
@@ -93,7 +93,7 @@ The Vector Database MCP Server is a document indexing and retrieval system built
 
 **Responsibility**: Protocol handling and tool registration
 
-**Implementation**: `src/vector_mcp/mcp_server.py`
+**Implementation**: `src/docvec/mcp_server.py`
 
 The MCP Server implements the Model Context Protocol specification, exposing tools to Claude Code via JSON-RPC over stdio. It handles:
 
@@ -114,7 +114,7 @@ The MCP Server implements the Model Context Protocol specification, exposing too
 
 **Responsibility**: Document indexing workflow orchestration
 
-**Implementation**: `src/vector_mcp/mcp_tools/indexing_tools.py`
+**Implementation**: `src/docvec/mcp_tools/indexing_tools.py`
 
 Coordinates the indexing pipeline:
 1. Path validation
@@ -131,7 +131,7 @@ Coordinates the indexing pipeline:
 
 **Responsibility**: Search and retrieval workflow
 
-**Implementation**: `src/vector_mcp/mcp_tools/query_tools.py`
+**Implementation**: `src/docvec/mcp_tools/query_tools.py`
 
 Manages semantic search pipeline:
 1. Query embedding via Ollama
@@ -149,7 +149,7 @@ Manages semantic search pipeline:
 
 **Responsibility**: Multi-document indexing with deduplication
 
-**Implementation**: `src/vector_mcp/indexing/batch_processor.py`
+**Implementation**: `src/docvec/indexing/batch_processor.py`
 
 Handles directory-level operations:
 - File discovery (glob patterns)
@@ -167,7 +167,7 @@ Handles directory-level operations:
 
 **Responsibility**: Single-document indexing orchestration
 
-**Implementation**: `src/vector_mcp/indexing/indexer.py`
+**Implementation**: `src/docvec/indexing/indexer.py`
 
 **INTEGRATION POINT**: Coordinates multiple subsystems
 
@@ -193,7 +193,7 @@ Pipeline:
 
 **Responsibility**: Format-specific content segmentation
 
-**Base Interface**: `src/vector_mcp/chunking/base.py`
+**Base Interface**: `src/docvec/chunking/base.py`
 
 All chunkers implement `AbstractChunker` interface:
 
@@ -207,7 +207,7 @@ class AbstractChunker(ABC):
 
 #### Markdown Chunker
 
-**Implementation**: `src/vector_mcp/chunking/markdown_chunker.py`
+**Implementation**: `src/docvec/chunking/markdown_chunker.py`
 
 **Strategy**: Header-aware hierarchical chunking
 
@@ -227,7 +227,7 @@ Algorithm:
 
 #### PDF Chunker
 
-**Implementation**: `src/vector_mcp/chunking/pdf_chunker.py`
+**Implementation**: `src/docvec/chunking/pdf_chunker.py`
 
 **Strategy**: Page-aware with content continuity
 
@@ -247,7 +247,7 @@ Algorithm:
 
 #### Text Chunker
 
-**Implementation**: `src/vector_mcp/chunking/text_chunker.py`
+**Implementation**: `src/docvec/chunking/text_chunker.py`
 
 **Strategy**: Paragraph-first with sentence fallback
 
@@ -266,7 +266,7 @@ Algorithm:
 
 #### Code Chunker
 
-**Implementation**: `src/vector_mcp/chunking/code_chunker.py`
+**Implementation**: `src/docvec/chunking/code_chunker.py`
 
 **Strategy**: AST-based semantic chunking
 
@@ -292,7 +292,7 @@ Algorithm:
 
 **Responsibility**: Embedding generation
 
-**Implementation**: `src/vector_mcp/embedding/ollama_client.py`
+**Implementation**: `src/docvec/embedding/ollama_client.py`
 
 Features:
 - HTTP client for Ollama API
@@ -322,7 +322,7 @@ class OllamaClient:
 
 **Responsibility**: Vector database operations
 
-**Implementation**: `src/vector_mcp/storage/chroma_store.py`
+**Implementation**: `src/docvec/storage/chroma_store.py`
 
 Features:
 - Persistent local storage
@@ -355,7 +355,7 @@ class ChromaStore:
 
 **Responsibility**: Accurate token counting
 
-**Implementation**: `src/vector_mcp/token_counter.py`
+**Implementation**: `src/docvec/token_counter.py`
 
 Uses `tiktoken` with cl100k_base encoding (Claude/GPT-4 tokenizer)
 
@@ -368,7 +368,7 @@ Uses `tiktoken` with cl100k_base encoding (Claude/GPT-4 tokenizer)
 
 **Responsibility**: Document deduplication
 
-**Implementation**: `src/vector_mcp/deduplication/hasher.py`
+**Implementation**: `src/docvec/deduplication/hasher.py`
 
 Uses SHA-256 for content hashing
 

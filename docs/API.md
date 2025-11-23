@@ -1,6 +1,6 @@
 # MCP Tools API Reference
 
-This document provides detailed specifications for all MCP tools exposed by the Vector Database MCP Server.
+This document provides detailed specifications for all MCP tools exposed by the DocVec server.
 
 ## Overview
 

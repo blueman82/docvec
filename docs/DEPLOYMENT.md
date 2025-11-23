@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers installation, configuration, and deployment of the Vector Database MCP Server in various environments.
+This guide covers installation, configuration, and deployment of the DocVec in various environments.
 
 ## Table of Contents
 
@@ -73,103 +73,106 @@ This guide covers installation, configuration, and deployment of the Vector Data
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vector-mcp-server.git
-cd vector-mcp-server
+git clone https://github.com/yourusername/docvec.git
+cd docvec
 
 # Create virtual environment and install dependencies
 uv sync
 
 # Verify installation
-uv run python -m vector_mcp --help
+uv run python -m docvec --help
 ```
 
 ### Method 2: pip Installation (Coming Soon)
 
 ```bash
 # Install from PyPI (when published)
-pip install vector-mcp
+pip install docvec
 
 # Verify installation
-python -m vector_mcp --help
+python -m docvec --help
 ```
 
 ### Method 3: Docker (See Docker Deployment section)
 
 ```bash
-docker pull yourusername/vector-mcp:latest
+docker pull yourusername/docvec:latest
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-Create a `.env` file or export environment variables:
+Configuration can be set via CLI arguments or environment variables with the `DOCVEC_` prefix:
 
 ```bash
 # Vector Database Configuration
-export VECTOR_MCP_DB_PATH="$HOME/.vector_mcp/chroma_db"
+export DOCVEC_DB_PATH="./chroma_db"
 
 # Ollama Configuration
-export VECTOR_MCP_OLLAMA_HOST="http://localhost:11434"
-export VECTOR_MCP_EMBEDDING_MODEL="mxbai-embed-large"
+export DOCVEC_HOST="http://localhost:11434"
+export DOCVEC_MODEL="nomic-embed-text"
+export DOCVEC_TIMEOUT=30
 
 # Chunking Configuration
-export VECTOR_MCP_CHUNK_SIZE=512
-export VECTOR_MCP_CHUNK_OVERLAP=50
+export DOCVEC_CHUNK_SIZE=256
+export DOCVEC_BATCH_SIZE=16
 
-# Query Configuration
-export VECTOR_MCP_MAX_RESULTS=5
-export VECTOR_MCP_MAX_TOKENS=3000
+# Collection Configuration
+export DOCVEC_COLLECTION="documents"
 
 # Logging Configuration
-export VECTOR_MCP_LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
-export VECTOR_MCP_LOG_FILE="$HOME/.vector_mcp/logs/server.log"
+export DOCVEC_LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
 ```
 
-### Configuration File (Optional)
-
-Create `~/.vector_mcp/config.yaml`:
-
-```yaml
-database:
-  path: ~/.vector_mcp/chroma_db
-
-ollama:
-  host: http://localhost:11434
-  model: mxbai-embed-large
-  timeout: 30
-  batch_size: 32
-
-chunking:
-  chunk_size: 512
-  chunk_overlap: 50
-
-query:
-  max_results: 5
-  max_tokens: 3000
-
-logging:
-  level: INFO
-  file: ~/.vector_mcp/logs/server.log
-```
-
-Load config file:
+Or use CLI arguments:
 ```bash
-uv run python -m vector_mcp --config ~/.vector_mcp/config.yaml
+python -m docvec \
+  --db-path ./chroma_db \
+  --host http://localhost:11434 \
+  --model nomic-embed-text \
+  --chunk-size 256 \
+  --batch-size 16 \
+  --collection documents \
+  --log-level INFO
+```
+
+### Quick Start with Environment Variables
+
+```bash
+# Set environment variables
+export DOCVEC_DB_PATH="./chroma_db"
+export DOCVEC_HOST="http://localhost:11434"
+export DOCVEC_MODEL="nomic-embed-text"
+
+# Run server
+uv run python -m docvec
+```
+
+Alternatively, pass all arguments on command line:
+```bash
+uv run python -m docvec \
+  --db-path ./chroma_db \
+  --host http://localhost:11434 \
+  --model nomic-embed-text \
+  --log-level DEBUG
 ```
 
 ### Directory Structure
 
-The server creates this directory structure automatically:
+The server uses the specified data directory (default: `./chroma_db`):
 
 ```
-~/.vector_mcp/
-├── chroma_db/           # ChromaDB persistent storage
-│   ├── chroma.sqlite3   # Metadata database
-│   └── [collection_id]/ # Vector embeddings
-├── logs/
-│   └── server.log       # Application logs
-└── config.yaml          # Optional configuration
+./chroma_db/
+├── chroma.sqlite3       # Metadata database
+└── [collection_id]/     # Vector embeddings
+```
+
+Or when using `DOCVEC_DB_PATH`:
+```
+$DOCVEC_DB_PATH/
+├── chroma.sqlite3       # Metadata database
+└── [collection_id]/     # Vector embeddings
 ```
 
 ## Docker Deployment
@@ -191,20 +194,21 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
-  vector-mcp:
-    image: yourusername/vector-mcp:latest
-    container_name: vector-mcp
+  docvec:
+    image: yourusername/docvec:latest
+    container_name: docvec
     depends_on:
       - ollama
     environment:
-      - VECTOR_MCP_DB_PATH=/data/chroma_db
-      - VECTOR_MCP_OLLAMA_HOST=http://ollama:11434
-      - VECTOR_MCP_EMBEDDING_MODEL=mxbai-embed-large
+      - DOCVEC_DB_PATH=/data/chroma_db
+      - DOCVEC_HOST=http://ollama:11434
+      - DOCVEC_MODEL=nomic-embed-text
+      - DOCVEC_LOG_LEVEL=INFO
     volumes:
       - vector_data:/data
       - ./documents:/documents:ro  # Mount your documents
     restart: unless-stopped
-    command: ["python", "-m", "vector_mcp"]
+    command: ["python", "-m", "docvec"]
 
 volumes:
   ollama_data:
@@ -221,7 +225,7 @@ docker-compose up -d
 docker exec ollama ollama pull mxbai-embed-large
 
 # View logs
-docker-compose logs -f vector-mcp
+docker-compose logs -f docvec
 
 # Stop services
 docker-compose down
@@ -232,7 +236,7 @@ docker-compose down
 1. **Build image**:
 
 ```bash
-docker build -t vector-mcp:latest .
+docker build -t docvec:latest .
 ```
 
 2. **Run container**:
@@ -246,16 +250,17 @@ docker run -d \
   ollama/ollama:latest
 
 # Pull embedding model
-docker exec ollama ollama pull mxbai-embed-large
+docker exec ollama ollama pull nomic-embed-text
 
-# Start vector-mcp
+# Start docvec
 docker run -d \
-  --name vector-mcp \
+  --name docvec \
   --link ollama:ollama \
-  -e VECTOR_MCP_OLLAMA_HOST=http://ollama:11434 \
+  -e DOCVEC_HOST=http://ollama:11434 \
+  -e DOCVEC_MODEL=nomic-embed-text \
   -v vector_data:/data \
   -v $(pwd)/documents:/documents:ro \
-  vector-mcp:latest
+  docvec:latest
 ```
 
 ### Multi-stage Dockerfile
@@ -275,8 +280,7 @@ WORKDIR /app
 COPY --from=builder /build/.venv /app/.venv
 COPY src/ /app/src/
 ENV PATH="/app/.venv/bin:$PATH"
-HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1
-CMD ["python", "-m", "vector_mcp"]
+CMD ["python", "-m", "docvec"]
 ```
 
 ## Systemd Service
@@ -285,29 +289,30 @@ For Linux servers, run as a systemd service for automatic startup and restart.
 
 ### Service File
 
-Create `/etc/systemd/system/vector-mcp.service`:
+Create `/etc/systemd/system/docvec.service`:
 
 ```ini
 [Unit]
-Description=Vector Database MCP Server
+Description=DocVec - Document Vector Database Server
 After=network.target ollama.service
 Requires=ollama.service
 
 [Service]
 Type=simple
-User=vector-mcp
-Group=vector-mcp
-WorkingDirectory=/opt/vector-mcp
-Environment="PATH=/opt/vector-mcp/.venv/bin:/usr/bin"
-Environment="VECTOR_MCP_DB_PATH=/var/lib/vector-mcp/chroma_db"
-Environment="VECTOR_MCP_OLLAMA_HOST=http://localhost:11434"
-Environment="VECTOR_MCP_LOG_FILE=/var/log/vector-mcp/server.log"
-ExecStart=/opt/vector-mcp/.venv/bin/python -m vector_mcp
+User=docvec
+Group=docvec
+WorkingDirectory=/opt/docvec
+Environment="PATH=/opt/docvec/.venv/bin:/usr/bin"
+Environment="DOCVEC_DB_PATH=/var/lib/docvec/chroma_db"
+Environment="DOCVEC_HOST=http://localhost:11434"
+Environment="DOCVEC_MODEL=nomic-embed-text"
+Environment="DOCVEC_LOG_LEVEL=INFO"
+ExecStart=/opt/docvec/.venv/bin/python -m docvec
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=vector-mcp
+SyslogIdentifier=docvec
 
 [Install]
 WantedBy=multi-user.target
@@ -317,37 +322,35 @@ WantedBy=multi-user.target
 
 1. **Create service user**:
 ```bash
-sudo useradd -r -s /bin/false -d /opt/vector-mcp vector-mcp
+sudo useradd -r -s /bin/false -d /opt/docvec docvec
 ```
 
 2. **Install application**:
 ```bash
-sudo mkdir -p /opt/vector-mcp
-sudo chown vector-mcp:vector-mcp /opt/vector-mcp
-cd /opt/vector-mcp
-sudo -u vector-mcp git clone https://github.com/yourusername/vector-mcp.git .
-sudo -u vector-mcp uv sync
+sudo mkdir -p /opt/docvec
+sudo chown docvec:docvec /opt/docvec
+cd /opt/docvec
+sudo -u docvec git clone https://github.com/yourusername/docvec.git .
+sudo -u docvec uv sync
 ```
 
 3. **Create data directories**:
 ```bash
-sudo mkdir -p /var/lib/vector-mcp/chroma_db
-sudo mkdir -p /var/log/vector-mcp
-sudo chown -R vector-mcp:vector-mcp /var/lib/vector-mcp
-sudo chown -R vector-mcp:vector-mcp /var/log/vector-mcp
+sudo mkdir -p /var/lib/docvec/chroma_db
+sudo chown -R docvec:docvec /var/lib/docvec
 ```
 
 4. **Enable and start service**:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable vector-mcp
-sudo systemctl start vector-mcp
-sudo systemctl status vector-mcp
+sudo systemctl enable docvec
+sudo systemctl start docvec
+sudo systemctl status docvec
 ```
 
 5. **View logs**:
 ```bash
-sudo journalctl -u vector-mcp -f
+sudo journalctl -u docvec -f
 ```
 
 ## MCP Integration
@@ -359,12 +362,12 @@ Add to `~/.claude/config/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "vector-db": {
+    "docvec": {
       "command": "uv",
-      "args": ["run", "python", "-m", "vector_mcp"],
+      "args": ["run", "python", "-m", "docvec"],
       "env": {
-        "VECTOR_MCP_DB_PATH": "/Users/harrison/.vector_mcp/chroma_db",
-        "VECTOR_MCP_LOG_LEVEL": "INFO"
+        "DOCVEC_DB_PATH": "/Users/harrison/.docvec/chroma_db",
+        "DOCVEC_LOG_LEVEL": "INFO"
       }
     }
   }
@@ -376,14 +379,14 @@ Add to `~/.claude/config/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "vector-db": {
+    "docvec": {
       "command": "docker",
       "args": [
         "exec",
-        "vector-mcp",
+        "docvec",
         "python",
         "-m",
-        "vector_mcp"
+        "docvec"
       ]
     }
   }
@@ -404,7 +407,7 @@ Or use the MCP inspector:
 npm install -g @modelcontextprotocol/inspector
 
 # Test connection
-mcp-inspector uv run python -m vector_mcp
+mcp-inspector uv run python -m docvec
 ```
 
 ## Troubleshooting
@@ -455,14 +458,15 @@ ollama run mxbai-embed-large "test"
 **Solutions**:
 ```bash
 # Fix ownership
-sudo chown -R $USER:$USER ~/.vector_mcp/chroma_db
+sudo chown -R $USER:$USER ./chroma_db
 
 # Fix permissions
-chmod 755 ~/.vector_mcp
-chmod 755 ~/.vector_mcp/chroma_db
+chmod 755 ./chroma_db
 
 # Or specify different path
-export VECTOR_MCP_DB_PATH=/tmp/chroma_db
+export DOCVEC_DB_PATH=/tmp/chroma_db
+# Or use CLI argument
+python -m docvec --db-path /tmp/chroma_db
 ```
 
 ### High Memory Usage
@@ -473,12 +477,16 @@ export VECTOR_MCP_DB_PATH=/tmp/chroma_db
 
 1. **Reduce batch size**:
    ```bash
-   export VECTOR_MCP_EMBEDDING_BATCH_SIZE=16  # Default: 32
+   export DOCVEC_BATCH_SIZE=8
+   # Or via CLI
+   python -m docvec --batch-size 8
    ```
 
 2. **Reduce chunk size**:
    ```bash
-   export VECTOR_MCP_CHUNK_SIZE=256  # Default: 512
+   export DOCVEC_CHUNK_SIZE=128
+   # Or via CLI
+   python -m docvec --chunk-size 128
    ```
 
 3. **Process files individually**:
@@ -502,13 +510,17 @@ export VECTOR_MCP_DB_PATH=/tmp/chroma_db
 
 2. **Increase batch size**:
    ```bash
-   export VECTOR_MCP_EMBEDDING_BATCH_SIZE=64
+   export DOCVEC_BATCH_SIZE=32
+   # Or via CLI
+   python -m docvec --batch-size 32
    ```
 
 3. **Use smaller model** (lower quality):
    ```bash
    ollama pull all-minilm
-   export VECTOR_MCP_EMBEDDING_MODEL=all-minilm
+   export DOCVEC_MODEL=all-minilm
+   # Or via CLI
+   python -m docvec --model all-minilm
    ```
 
 ### MCP Connection Issues
@@ -524,7 +536,7 @@ export VECTOR_MCP_DB_PATH=/tmp/chroma_db
 
 2. **Test command manually**:
    ```bash
-   uv run python -m vector_mcp --help
+   uv run python -m docvec --help
    ```
 
 3. **Check Claude Code logs**:
@@ -540,14 +552,14 @@ export VECTOR_MCP_DB_PATH=/tmp/chroma_db
 
 ```bash
 # Stop the server
-sudo systemctl stop vector-mcp  # Linux
+sudo systemctl stop docvec  # Linux
 # or kill the process
 
 # Backup ChromaDB
-tar -czf vector-mcp-backup-$(date +%Y%m%d).tar.gz ~/.vector_mcp/chroma_db
+tar -czf docvec-backup-$(date +%Y%m%d).tar.gz ~/.docvec/chroma_db
 
 # Restart server
-sudo systemctl start vector-mcp
+sudo systemctl start docvec
 ```
 
 ### Database Cleanup
@@ -556,10 +568,10 @@ Remove outdated or unwanted documents:
 
 ```python
 # Via Python
-from vector_mcp.storage.chroma_store import ChromaStore
+from docvec.storage.chroma_store import ChromaStore
 from pathlib import Path
 
-store = ChromaStore(Path("~/.vector_mcp/chroma_db").expanduser())
+store = ChromaStore(Path("~/.docvec/chroma_db").expanduser())
 
 # Delete by source file
 results = store.search(
@@ -571,20 +583,20 @@ store.delete([r["id"] for r in results])
 
 ### Log Rotation
 
-Create `/etc/logrotate.d/vector-mcp`:
+Create `/etc/logrotate.d/docvec`:
 
 ```
-/var/log/vector-mcp/*.log {
+/var/log/docvec/*.log {
     daily
     rotate 7
     compress
     delaycompress
     missingok
     notifempty
-    create 0640 vector-mcp vector-mcp
+    create 0640 docvec docvec
     sharedscripts
     postrotate
-        systemctl reload vector-mcp > /dev/null 2>&1 || true
+        systemctl reload docvec > /dev/null 2>&1 || true
     endscript
 }
 ```
@@ -593,36 +605,36 @@ Create `/etc/logrotate.d/vector-mcp`:
 
 **Check service status**:
 ```bash
-sudo systemctl status vector-mcp
+sudo systemctl status docvec
 ```
 
 **Monitor resource usage**:
 ```bash
 # CPU and memory
-top -p $(pgrep -f vector_mcp)
+top -p $(pgrep -f docvec)
 
 # Disk usage
-du -sh ~/.vector_mcp/chroma_db
+du -sh ~/.docvec/chroma_db
 ```
 
 **Query performance metrics**:
 ```bash
 # Check logs for query latency
-grep "search_time" ~/.vector_mcp/logs/server.log
+grep "search_time" ~/.docvec/logs/server.log
 ```
 
 ### Updates
 
 ```bash
 # Pull latest code
-cd /opt/vector-mcp
-sudo -u vector-mcp git pull
+cd /opt/docvec
+sudo -u docvec git pull
 
 # Update dependencies
-sudo -u vector-mcp uv sync
+sudo -u docvec uv sync
 
 # Restart service
-sudo systemctl restart vector-mcp
+sudo systemctl restart docvec
 ```
 
 ## Security Considerations
@@ -631,10 +643,10 @@ sudo systemctl restart vector-mcp
 
 ```bash
 # Restrict database access
-chmod 700 ~/.vector_mcp/chroma_db
+chmod 700 ~/.docvec/chroma_db
 
 # Restrict config file
-chmod 600 ~/.vector_mcp/config.yaml
+chmod 600 ~/.docvec/config.yaml
 ```
 
 ### Network Security
@@ -657,19 +669,23 @@ chmod 600 ~/.vector_mcp/config.yaml
 
 1. **Increase batch size**:
    ```bash
-   export VECTOR_MCP_EMBEDDING_BATCH_SIZE=128
+   export DOCVEC_BATCH_SIZE=32
+   # Or via CLI
+   python -m docvec --batch-size 32
    ```
 
 2. **Use SSD for ChromaDB**:
    ```bash
-   export VECTOR_MCP_DB_PATH=/path/to/ssd/chroma_db
+   export DOCVEC_DB_PATH=/path/to/ssd/chroma_db
+   # Or via CLI
+   python -m docvec --db-path /path/to/ssd/chroma_db
    ```
 
 3. **Allocate more RAM to Docker** (if using Docker):
    ```yaml
    # docker-compose.yml
    services:
-     vector-mcp:
+     docvec:
        mem_limit: 8g
    ```
 
@@ -703,6 +719,6 @@ chmod 600 ~/.vector_mcp/config.yaml
 ## Support
 
 For additional help:
-- GitHub Issues: https://github.com/yourusername/vector-mcp/issues
-- Documentation: https://github.com/yourusername/vector-mcp/wiki
-- Discord: https://discord.gg/vector-mcp
+- GitHub Issues: https://github.com/yourusername/docvec/issues
+- Documentation: https://github.com/yourusername/docvec/wiki
+- Discord: https://discord.gg/docvec
