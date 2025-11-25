@@ -37,7 +37,9 @@ class Chunk:
             raise ValueError("Chunk content cannot be empty or whitespace-only")
 
         if self.chunk_index < 0:
-            raise ValueError(f"Chunk index must be non-negative, got {self.chunk_index}")
+            raise ValueError(
+                f"Chunk index must be non-negative, got {self.chunk_index}"
+            )
 
 
 class AbstractChunker(ABC):
@@ -77,3 +79,152 @@ class AbstractChunker(ABC):
             return True
         except ValueError:
             return False
+
+    def split_oversized_chunk(
+        self, chunk: Chunk, max_tokens: int, base_index: int = 0
+    ) -> list[Chunk]:
+        """Split an oversized chunk into smaller chunks that fit within token limits.
+
+        Uses character-based estimation (chars/4 ≈ tokens) consistent with
+        existing codebase patterns. Splits at paragraph boundaries first,
+        then falls back to line boundaries if needed.
+
+        Args:
+            chunk: The chunk to potentially split
+            max_tokens: Maximum tokens per chunk
+            base_index: Starting index for the resulting chunks
+
+        Returns:
+            List of Chunk objects. If the original chunk is within limits,
+            returns a single-element list with the chunk (with updated index).
+            If split, all chunks have "split_part" added to metadata.
+        """
+        # Estimate tokens using chars/4 approximation
+        max_chars = max_tokens * 4
+        content = chunk.content
+
+        # If within limit, return unchanged (with base_index applied)
+        if len(content) <= max_chars:
+            return [
+                Chunk(
+                    content=content,
+                    source_file=chunk.source_file,
+                    chunk_index=base_index,
+                    metadata=dict(chunk.metadata),
+                    token_count=chunk.token_count,
+                )
+            ]
+
+        # Split at paragraph boundaries first (double newline)
+        paragraphs = content.split("\n\n")
+
+        # If we only got one paragraph, fall back to line boundaries
+        if len(paragraphs) == 1:
+            paragraphs = content.split("\n")
+
+        # Build chunks from segments, combining small ones and splitting large ones
+        result_chunks: list[Chunk] = []
+        current_text = ""
+        part_index = 0
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+
+            # Check if adding this paragraph would exceed the limit
+            if current_text:
+                combined = current_text + "\n\n" + para
+            else:
+                combined = para
+
+            if len(combined) <= max_chars:
+                current_text = combined
+            else:
+                # Flush current text if we have any
+                if current_text:
+                    new_metadata = dict(chunk.metadata)
+                    new_metadata["split_part"] = part_index
+                    result_chunks.append(
+                        Chunk(
+                            content=current_text,
+                            source_file=chunk.source_file,
+                            chunk_index=base_index + part_index,
+                            metadata=new_metadata,
+                        )
+                    )
+                    part_index += 1
+
+                # Handle the paragraph that didn't fit
+                if len(para) <= max_chars:
+                    current_text = para
+                else:
+                    # Paragraph itself is too large, split by words
+                    word_chunks = self._split_by_words(para, max_chars)
+                    for word_chunk in word_chunks:
+                        new_metadata = dict(chunk.metadata)
+                        new_metadata["split_part"] = part_index
+                        result_chunks.append(
+                            Chunk(
+                                content=word_chunk,
+                                source_file=chunk.source_file,
+                                chunk_index=base_index + part_index,
+                                metadata=new_metadata,
+                            )
+                        )
+                        part_index += 1
+                    current_text = ""
+
+        # Flush remaining text
+        if current_text:
+            new_metadata = dict(chunk.metadata)
+            new_metadata["split_part"] = part_index
+            result_chunks.append(
+                Chunk(
+                    content=current_text,
+                    source_file=chunk.source_file,
+                    chunk_index=base_index + part_index,
+                    metadata=new_metadata,
+                )
+            )
+
+        return result_chunks
+
+    def _split_by_words(self, text: str, max_chars: int) -> list[str]:
+        """Split text by word boundaries to fit within character limit.
+
+        Args:
+            text: Text to split
+            max_chars: Maximum characters per segment
+
+        Returns:
+            List of text segments
+        """
+        words = text.split()
+        segments: list[str] = []
+        current_segment = ""
+
+        for word in words:
+            if current_segment:
+                test_segment = current_segment + " " + word
+            else:
+                test_segment = word
+
+            if len(test_segment) <= max_chars:
+                current_segment = test_segment
+            else:
+                if current_segment:
+                    segments.append(current_segment)
+                # Handle words longer than max_chars by truncating
+                if len(word) > max_chars:
+                    # Split long word at max_chars boundaries
+                    for i in range(0, len(word), max_chars):
+                        segments.append(word[i : i + max_chars])
+                    current_segment = ""
+                else:
+                    current_segment = word
+
+        if current_segment:
+            segments.append(current_segment)
+
+        return segments

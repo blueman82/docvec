@@ -17,17 +17,21 @@ class MarkdownChunker(AbstractChunker):
     Attributes:
         chunk_size: Maximum characters per chunk (soft limit)
         chunk_overlap: Number of characters to overlap between chunks
+        max_tokens: Maximum tokens per chunk (enforced via split_oversized_chunk)
     """
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(
+        self, chunk_size: int = 1000, chunk_overlap: int = 200, max_tokens: int = 256
+    ):
         """Initialize markdown chunker.
 
         Args:
             chunk_size: Maximum characters per chunk (soft limit)
             chunk_overlap: Number of characters to overlap between chunks
+            max_tokens: Maximum tokens per chunk (uses 4 chars ≈ 1 token approximation)
 
         Raises:
-            ValueError: If chunk_size or chunk_overlap are invalid
+            ValueError: If chunk_size or chunk_overlap are invalid or max_tokens <= 0
         """
         if chunk_size <= 0:
             raise ValueError(f"chunk_size must be positive, got {chunk_size}")
@@ -37,9 +41,12 @@ class MarkdownChunker(AbstractChunker):
             raise ValueError(
                 f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})"
             )
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens must be positive, got {max_tokens}")
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.max_tokens = max_tokens
 
     def chunk(self, content: str, source_file: str) -> list[Chunk]:
         """Split markdown content into chunks respecting header hierarchy.
@@ -65,13 +72,12 @@ class MarkdownChunker(AbstractChunker):
         chunk_index = 0
 
         for section in sections:
-            section_chunks = self._chunk_section(
-                section, source_file, chunk_index
-            )
+            section_chunks = self._chunk_section(section, source_file, chunk_index)
             chunks.extend(section_chunks)
             chunk_index += len(section_chunks)
 
-        return chunks
+        # Post-process: split any oversized chunks and rebuild indices
+        return self._split_oversized_chunks(chunks)
 
     def _parse_sections(self, content: str) -> list[dict]:
         """Parse markdown into sections based on headers.
@@ -83,14 +89,14 @@ class MarkdownChunker(AbstractChunker):
             List of section dictionaries with 'level', 'title', 'content', and 'header_path'
         """
         # Pattern to match markdown headers (# Header)
-        header_pattern = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
+        header_pattern = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 
         sections = []
-        header_stack = []  # Stack to track header hierarchy
+        header_stack: list[dict[str, str | int]] = []  # Stack to track header hierarchy
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         current_section = None
-        current_content_lines = []
+        current_content_lines: list[str] = []
 
         for line in lines:
             header_match = header_pattern.match(line)
@@ -98,8 +104,10 @@ class MarkdownChunker(AbstractChunker):
             if header_match:
                 # Save previous section if exists
                 if current_section is not None:
-                    current_section['content'] = '\n'.join(current_content_lines).strip()
-                    if current_section['content']:  # Only add non-empty sections
+                    current_section["content"] = "\n".join(
+                        current_content_lines
+                    ).strip()
+                    if current_section["content"]:  # Only add non-empty sections
                         sections.append(current_section)
 
                 # Parse new header
@@ -108,21 +116,21 @@ class MarkdownChunker(AbstractChunker):
 
                 # Update header stack to maintain hierarchy
                 # Remove headers at same or deeper level
-                while header_stack and header_stack[-1]['level'] >= level:
+                while header_stack and int(header_stack[-1]["level"]) >= level:
                     header_stack.pop()
 
                 # Add current header to stack
-                header_stack.append({'level': level, 'title': title})
+                header_stack.append({"level": level, "title": title})
 
                 # Build header path from stack
-                header_path = ' > '.join(h['title'] for h in header_stack)
+                header_path = " > ".join(str(h["title"]) for h in header_stack)
 
                 # Create new section
                 current_section = {
-                    'level': level,
-                    'title': title,
-                    'header_path': header_path,
-                    'content': ''
+                    "level": level,
+                    "title": title,
+                    "header_path": header_path,
+                    "content": "",
                 }
                 current_content_lines = []
             else:
@@ -131,20 +139,22 @@ class MarkdownChunker(AbstractChunker):
 
         # Don't forget the last section
         if current_section is not None:
-            current_section['content'] = '\n'.join(current_content_lines).strip()
-            if current_section['content']:
+            current_section["content"] = "\n".join(current_content_lines).strip()
+            if current_section["content"]:
                 sections.append(current_section)
 
         # If no headers found, treat entire content as one section
         if not sections:
             full_content = content.strip()
             if full_content:
-                sections.append({
-                    'level': 0,
-                    'title': 'Document',
-                    'header_path': 'Document',
-                    'content': full_content
-                })
+                sections.append(
+                    {
+                        "level": 0,
+                        "title": "Document",
+                        "header_path": "Document",
+                        "content": full_content,
+                    }
+                )
 
         return sections
 
@@ -164,7 +174,7 @@ class MarkdownChunker(AbstractChunker):
         Returns:
             List of chunks for this section
         """
-        content = section['content']
+        content = section["content"]
 
         # If content fits in one chunk, return it
         if len(content) <= self.chunk_size:
@@ -174,10 +184,10 @@ class MarkdownChunker(AbstractChunker):
                     source_file=source_file,
                     chunk_index=start_index,
                     metadata={
-                        'header_path': section['header_path'],
-                        'header_level': section['level'],
-                        'header_title': section['title']
-                    }
+                        "header_path": section["header_path"],
+                        "header_level": section["level"],
+                        "header_title": section["title"],
+                    },
                 )
             ]
 
@@ -200,14 +210,14 @@ class MarkdownChunker(AbstractChunker):
         Returns:
             List of chunks for this section
         """
-        content = section['content']
+        content = section["content"]
 
         # Split into paragraphs
-        paragraphs = re.split(r'\n\s*\n', content)
+        paragraphs = re.split(r"\n\s*\n", content)
         paragraphs = [p.strip() for p in paragraphs if p.strip()]
 
         chunks = []
-        current_chunk = []
+        current_chunk: list[str] = []
         current_length = 0
         chunk_idx = start_index
 
@@ -217,17 +227,17 @@ class MarkdownChunker(AbstractChunker):
             # If adding this paragraph exceeds chunk_size, finalize current chunk
             if current_chunk and current_length + para_length > self.chunk_size:
                 # Create chunk from accumulated paragraphs
-                chunk_content = '\n\n'.join(current_chunk)
+                chunk_content = "\n\n".join(current_chunk)
                 chunks.append(
                     Chunk(
                         content=chunk_content,
                         source_file=source_file,
                         chunk_index=chunk_idx,
                         metadata={
-                            'header_path': section['header_path'],
-                            'header_level': section['level'],
-                            'header_title': section['title']
-                        }
+                            "header_path": section["header_path"],
+                            "header_level": section["level"],
+                            "header_title": section["title"],
+                        },
                     )
                 )
                 chunk_idx += 1
@@ -244,21 +254,23 @@ class MarkdownChunker(AbstractChunker):
             else:
                 # Add paragraph to current chunk
                 current_chunk.append(para)
-                current_length += para_length + (2 if current_chunk else 0)  # +2 for \n\n separator
+                current_length += para_length + (
+                    2 if current_chunk else 0
+                )  # +2 for \n\n separator
 
         # Add final chunk if any content remains
         if current_chunk:
-            chunk_content = '\n\n'.join(current_chunk)
+            chunk_content = "\n\n".join(current_chunk)
             chunks.append(
                 Chunk(
                     content=chunk_content,
                     source_file=source_file,
                     chunk_index=chunk_idx,
                     metadata={
-                        'header_path': section['header_path'],
-                        'header_level': section['level'],
-                        'header_title': section['title']
-                    }
+                        "header_path": section["header_path"],
+                        "header_level": section["level"],
+                        "header_title": section["title"],
+                    },
                 )
             )
 
@@ -280,7 +292,7 @@ class MarkdownChunker(AbstractChunker):
             return None
 
         # Try to get last sentence
-        sentences = re.split(r'[.!?]\s+', text)
+        sentences = re.split(r"[.!?]\s+", text)
         if len(sentences) > 1:
             last_sentence = sentences[-1]
             # Make sure it's not too long
@@ -288,10 +300,27 @@ class MarkdownChunker(AbstractChunker):
                 return last_sentence
 
         # Fall back to last chunk_overlap characters
-        overlap = text[-self.chunk_overlap:]
+        overlap = text[-self.chunk_overlap :]
         # Try to start at a word boundary
-        space_idx = overlap.find(' ')
+        space_idx = overlap.find(" ")
         if space_idx > 0:
-            return overlap[space_idx + 1:]
+            return overlap[space_idx + 1 :]
 
         return overlap
+
+    def _split_oversized_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
+        """Split any chunks exceeding max_tokens and rebuild indices.
+
+        Args:
+            chunks: Original list of chunks
+
+        Returns:
+            New list with oversized chunks split, indices rebuilt
+        """
+        result: list[Chunk] = []
+        for chunk in chunks:
+            split_chunks = self.split_oversized_chunk(
+                chunk, self.max_tokens, base_index=len(result)
+            )
+            result.extend(split_chunks)
+        return result

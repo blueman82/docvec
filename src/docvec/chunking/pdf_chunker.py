@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
@@ -22,27 +21,36 @@ class PDFChunker(AbstractChunker):
     Attributes:
         chunk_size: Maximum character length for a chunk
         chunk_overlap: Number of characters to overlap between chunks
+        max_tokens: Maximum tokens per chunk (enforced via split_oversized_chunk)
     """
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(
+        self, chunk_size: int = 1000, chunk_overlap: int = 200, max_tokens: int = 256
+    ):
         """Initialize PDF chunker.
 
         Args:
             chunk_size: Maximum characters per chunk
             chunk_overlap: Overlap between chunks in characters
+            max_tokens: Maximum tokens per chunk (uses 4 chars ≈ 1 token approximation)
 
         Raises:
-            ValueError: If chunk_size <= 0 or chunk_overlap < 0
+            ValueError: If chunk_size <= 0 or chunk_overlap < 0 or max_tokens <= 0
         """
         if chunk_size <= 0:
             raise ValueError(f"chunk_size must be positive, got {chunk_size}")
         if chunk_overlap < 0:
             raise ValueError(f"chunk_overlap must be non-negative, got {chunk_overlap}")
         if chunk_overlap >= chunk_size:
-            raise ValueError(f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})"
+            )
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens must be positive, got {max_tokens}")
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.max_tokens = max_tokens
 
     def chunk(self, content: str, source_file: str) -> list[Chunk]:
         """Split PDF content into chunks.
@@ -73,7 +81,7 @@ class PDFChunker(AbstractChunker):
         if not file_path.exists():
             raise ValueError(f"PDF file does not exist: {source_file}")
 
-        if file_path.suffix.lower() != '.pdf':
+        if file_path.suffix.lower() != ".pdf":
             raise ValueError(f"File is not a PDF: {source_file}")
 
         # Extract text from PDF
@@ -88,7 +96,10 @@ class PDFChunker(AbstractChunker):
             raise ValueError(f"PDF contains no extractable text: {source_file}")
 
         # Create chunks from extracted pages
-        return self._create_page_chunks(page_texts, source_file)
+        chunks = self._create_page_chunks(page_texts, source_file)
+
+        # Post-process: split any oversized chunks and rebuild indices
+        return self._split_oversized_chunks(chunks)
 
     def _extract_from_file(self, file_path: Path) -> list[tuple[str, int]]:
         """Extract text from PDF file page by page.
@@ -132,9 +143,7 @@ class PDFChunker(AbstractChunker):
         return page_texts
 
     def _create_page_chunks(
-        self,
-        page_texts: list[tuple[str, int]],
-        source_file: str
+        self, page_texts: list[tuple[str, int]], source_file: str
     ) -> list[Chunk]:
         """Create chunks from extracted page texts.
 
@@ -157,7 +166,7 @@ class PDFChunker(AbstractChunker):
             # Add overlap from previous page if configured
             if previous_text and self.chunk_overlap > 0 and not current_chunk_text:
                 # Get last N characters from previous text for overlap
-                overlap_text = previous_text[-self.chunk_overlap:].lstrip()
+                overlap_text = previous_text[-self.chunk_overlap :].lstrip()
                 if overlap_text:
                     current_chunk_text = overlap_text
                     # Note: overlap pages are not added to current_pages
@@ -172,16 +181,20 @@ class PDFChunker(AbstractChunker):
                 if space_available <= 0:
                     # Current chunk is full, save it
                     if current_chunk_text.strip():
-                        chunks.append(self._create_chunk(
-                            current_chunk_text.strip(),
-                            source_file,
-                            len(chunks),
-                            current_pages
-                        ))
+                        chunks.append(
+                            self._create_chunk(
+                                current_chunk_text.strip(),
+                                source_file,
+                                len(chunks),
+                                current_pages,
+                            )
+                        )
 
                     # Start new chunk with overlap
                     if self.chunk_overlap > 0:
-                        current_chunk_text = current_chunk_text[-self.chunk_overlap:].lstrip()
+                        current_chunk_text = current_chunk_text[
+                            -self.chunk_overlap :
+                        ].lstrip()
                     else:
                         current_chunk_text = ""
                     current_pages = []
@@ -190,7 +203,7 @@ class PDFChunker(AbstractChunker):
                 # Add text to current chunk
                 if len(remaining_text) <= space_available:
                     # All remaining text fits
-                    if current_chunk_text and not current_chunk_text.endswith(' '):
+                    if current_chunk_text and not current_chunk_text.endswith(" "):
                         current_chunk_text += " "
                     current_chunk_text += remaining_text
                     if page_num not in current_pages:
@@ -202,41 +215,36 @@ class PDFChunker(AbstractChunker):
 
                     # Try to break at sentence boundary
                     last_period = max(
-                        text_to_add.rfind('. '),
-                        text_to_add.rfind('! '),
-                        text_to_add.rfind('? ')
+                        text_to_add.rfind(". "),
+                        text_to_add.rfind("! "),
+                        text_to_add.rfind("? "),
                     )
 
                     if last_period > space_available // 2:
                         # Good break point found
-                        text_to_add = text_to_add[:last_period + 1]
+                        text_to_add = text_to_add[: last_period + 1]
 
-                    if current_chunk_text and not current_chunk_text.endswith(' '):
+                    if current_chunk_text and not current_chunk_text.endswith(" "):
                         current_chunk_text += " "
                     current_chunk_text += text_to_add
                     if page_num not in current_pages:
                         current_pages.append(page_num)
-                    remaining_text = remaining_text[len(text_to_add):].lstrip()
+                    remaining_text = remaining_text[len(text_to_add) :].lstrip()
 
             previous_text = page_text
 
         # Save final chunk
         if current_chunk_text.strip():
-            chunks.append(self._create_chunk(
-                current_chunk_text.strip(),
-                source_file,
-                len(chunks),
-                current_pages
-            ))
+            chunks.append(
+                self._create_chunk(
+                    current_chunk_text.strip(), source_file, len(chunks), current_pages
+                )
+            )
 
         return chunks
 
     def _create_chunk(
-        self,
-        content: str,
-        source_file: str,
-        chunk_index: int,
-        pages: list[int]
+        self, content: str, source_file: str, chunk_index: int, pages: list[int]
     ) -> Chunk:
         """Create a Chunk with page metadata.
 
@@ -249,7 +257,7 @@ class PDFChunker(AbstractChunker):
         Returns:
             Chunk object with page metadata
         """
-        metadata = {}
+        metadata: dict[str, int | str] = {}
 
         if pages:
             if len(pages) == 1:
@@ -265,5 +273,22 @@ class PDFChunker(AbstractChunker):
             content=content,
             source_file=source_file,
             chunk_index=chunk_index,
-            metadata=metadata
+            metadata=metadata,
         )
+
+    def _split_oversized_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
+        """Split any chunks exceeding max_tokens and rebuild indices.
+
+        Args:
+            chunks: Original list of chunks
+
+        Returns:
+            New list with oversized chunks split, indices rebuilt
+        """
+        result: list[Chunk] = []
+        for chunk in chunks:
+            split_chunks = self.split_oversized_chunk(
+                chunk, self.max_tokens, base_index=len(result)
+            )
+            result.extend(split_chunks)
+        return result

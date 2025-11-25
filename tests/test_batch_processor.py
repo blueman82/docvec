@@ -1,7 +1,7 @@
 """Tests for batch processor with deduplication."""
 
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 import pytest
 
@@ -22,9 +22,11 @@ def mock_indexer():
 def mock_hasher():
     """Provide mock DocumentHasher."""
     hasher = Mock()
+
     # Return different hashes for different files
     def hash_side_effect(file_path):
         return f"hash_{file_path.name}"
+
     hasher.hash_document.side_effect = hash_side_effect
     return hasher
 
@@ -127,7 +129,7 @@ class TestBatchProcessorFileDiscovery:
         files = processor._find_files(temp_docs_dir, recursive=True)
 
         # Should find all supported files including nested
-        file_names = {f.name for f in files}
+        file_names = {Path(f).name for f in files}
         assert "file1.txt" in file_names
         assert "file2.md" in file_names
         assert "file3.py" in file_names
@@ -141,7 +143,7 @@ class TestBatchProcessorFileDiscovery:
         """Test finding files in single directory only."""
         files = processor._find_files(temp_docs_dir, recursive=False)
 
-        file_names = {f.name for f in files}
+        file_names = {Path(f).name for f in files}
         assert "file1.txt" in file_names
         assert "file2.md" in file_names
         assert "README.md" in file_names
@@ -154,7 +156,7 @@ class TestBatchProcessorFileDiscovery:
         files = processor._find_files(temp_docs_dir, recursive=False)
 
         # Verify sorted order
-        file_names = [f.name for f in files]
+        file_names = [Path(f).name for f in files]
         assert file_names == sorted(file_names)
 
     def test_find_files_empty_directory(self, processor, tmp_path):
@@ -250,7 +252,9 @@ class TestBatchProcessorSingleFile:
 
         assert chunk_ids is None
 
-    def test_process_single_file_indexing_error(self, processor, mock_indexer, tmp_path):
+    def test_process_single_file_indexing_error(
+        self, processor, mock_indexer, tmp_path
+    ):
         """Test handling indexing error."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")
@@ -410,8 +414,11 @@ class TestBatchProcessorProcessDirectory:
         assert result.duplicates_skipped == 0
         assert len(result.errors) == 0
 
-    def test_process_directory_with_duplicates(self, processor, mock_storage, temp_docs_dir):
+    def test_process_directory_with_duplicates(
+        self, processor, mock_storage, temp_docs_dir
+    ):
         """Test directory processing with duplicates."""
+
         # Mock storage to mark some files as duplicates
         def get_by_hash_side_effect(file_hash):
             if file_hash in ["hash_file1.txt", "hash_README.md"]:
@@ -426,8 +433,11 @@ class TestBatchProcessorProcessDirectory:
         assert result.new_documents == 2
         assert result.duplicates_skipped == 2
 
-    def test_process_directory_with_errors(self, processor, mock_indexer, temp_docs_dir):
+    def test_process_directory_with_errors(
+        self, processor, mock_indexer, temp_docs_dir
+    ):
         """Test directory processing with some errors."""
+
         # Mock indexer to fail on specific files
         def index_side_effect(file_path):
             if file_path.name == "file1.txt":

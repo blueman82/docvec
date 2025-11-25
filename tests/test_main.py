@@ -11,8 +11,7 @@ This module tests __main__.py functionality including:
 import argparse
 import logging
 import sys
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -43,6 +42,7 @@ class TestArgumentParsing:
             # Indexing defaults
             assert args.chunk_size == 512
             assert args.batch_size == 32
+            assert args.max_tokens == 512
 
             # Logging defaults
             assert args.log_level == "INFO"
@@ -53,14 +53,24 @@ class TestArgumentParsing:
             "sys.argv",
             [
                 "vector-mcp",
-                "--host", "http://custom:8080",
-                "--model", "custom-model",
-                "--timeout", "60",
-                "--db-path", "/custom/path",
-                "--collection", "custom_collection",
-                "--chunk-size", "1024",
-                "--batch-size", "64",
-                "--log-level", "DEBUG",
+                "--host",
+                "http://custom:8080",
+                "--model",
+                "custom-model",
+                "--timeout",
+                "60",
+                "--db-path",
+                "/custom/path",
+                "--collection",
+                "custom_collection",
+                "--chunk-size",
+                "1024",
+                "--batch-size",
+                "64",
+                "--max-tokens",
+                "256",
+                "--log-level",
+                "DEBUG",
             ],
         ):
             args = parse_arguments()
@@ -72,6 +82,7 @@ class TestArgumentParsing:
             assert args.collection == "custom_collection"
             assert args.chunk_size == 1024
             assert args.batch_size == 64
+            assert args.max_tokens == 256
             assert args.log_level == "DEBUG"
 
     def test_parse_arguments_log_level_choices(self):
@@ -185,6 +196,7 @@ class TestComponentInitialization:
             collection="test_collection",
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
         )
 
         # Initialize components
@@ -217,6 +229,7 @@ class TestComponentInitialization:
             storage=mock_chroma_instance,
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
         )
 
         # Verify BatchProcessor dependencies
@@ -254,15 +267,18 @@ class TestComponentInitialization:
             collection="test_collection",
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
         )
 
         # Should not raise exception
-        with patch("docvec.__main__.ChromaStore"), \
-             patch("docvec.__main__.DocumentHasher"), \
-             patch("docvec.__main__.Indexer"), \
-             patch("docvec.__main__.BatchProcessor"), \
-             patch("docvec.__main__.IndexingTools"), \
-             patch("docvec.__main__.QueryTools"):
+        with (
+            patch("docvec.__main__.ChromaStore"),
+            patch("docvec.__main__.DocumentHasher"),
+            patch("docvec.__main__.Indexer"),
+            patch("docvec.__main__.BatchProcessor"),
+            patch("docvec.__main__.IndexingTools"),
+            patch("docvec.__main__.QueryTools"),
+        ):
 
             components = initialize_components(args)
             assert "embedder" in components
@@ -281,6 +297,7 @@ class TestComponentInitialization:
             collection="test_collection",
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
         )
 
         with pytest.raises(Exception, match="Initialization failed"):
@@ -429,8 +446,7 @@ class TestSignalHandling:
 class TestIntegration:
     """Integration tests combining multiple components."""
 
-    @pytest.mark.asyncio
-    async def test_main_initialization_flow(self):
+    def test_main_initialization_flow(self):
         """Test main function initialization flow."""
         from docvec import __main__
 
@@ -443,41 +459,46 @@ class TestIntegration:
             collection="test_collection",
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
             log_level="INFO",
         )
 
-        with patch("docvec.__main__.parse_arguments", return_value=mock_args), \
-             patch("docvec.__main__.setup_logging"), \
-             patch("docvec.__main__.initialize_components") as mock_init, \
-             patch("docvec.__main__.mcp") as mock_mcp, \
-             patch("signal.signal"):
+        with (
+            patch("docvec.__main__.parse_arguments", return_value=mock_args),
+            patch("docvec.__main__.setup_logging"),
+            patch("docvec.__main__.initialize_components") as mock_init,
+            patch("docvec.__main__.mcp") as mock_mcp,
+            patch("signal.signal"),
+        ):
 
             # Setup mock components
             mock_indexing = Mock()
+            mock_management = Mock()
             mock_query = Mock()
             mock_init.return_value = {
                 "indexing_tools": mock_indexing,
+                "management_tools": mock_management,
                 "query_tools": mock_query,
             }
 
             # Mock mcp.run to avoid blocking
-            mock_mcp.run = AsyncMock()
+            mock_mcp.run = Mock()
 
             # Run main
-            await __main__.main()
+            __main__.main()
 
             # Verify initialization was called
             mock_init.assert_called_once()
 
             # Verify globals were set
             assert __main__.indexing_tools == mock_indexing
+            assert __main__.management_tools == mock_management
             assert __main__.query_tools == mock_query
 
             # Verify mcp.run was called with stdio transport
             mock_mcp.run.assert_called_once_with(transport="stdio")
 
-    @pytest.mark.asyncio
-    async def test_main_handles_initialization_failure(self):
+    def test_main_handles_initialization_failure(self):
         """Test that main handles initialization failures gracefully."""
         from docvec import __main__
 
@@ -489,19 +510,22 @@ class TestIntegration:
             collection="test_collection",
             chunk_size=512,
             batch_size=32,
+            max_tokens=512,
             log_level="INFO",
         )
 
-        with patch("docvec.__main__.parse_arguments", return_value=mock_args), \
-             patch("docvec.__main__.setup_logging"), \
-             patch("docvec.__main__.initialize_components") as mock_init, \
-             patch("sys.exit") as mock_exit:
+        with (
+            patch("docvec.__main__.parse_arguments", return_value=mock_args),
+            patch("docvec.__main__.setup_logging"),
+            patch("docvec.__main__.initialize_components") as mock_init,
+            patch("sys.exit") as mock_exit,
+        ):
 
             # Make initialization fail
             mock_init.side_effect = Exception("Init failed")
 
             # Run main
-            await __main__.main()
+            __main__.main()
 
             # Verify exit was called with error code
             mock_exit.assert_called_once_with(1)

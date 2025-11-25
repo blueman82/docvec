@@ -227,3 +227,182 @@ class TestAbstractChunker:
         assert len(chunks) == 5
         for idx, chunk in enumerate(chunks):
             assert chunk.chunk_index == idx
+
+
+class TestSplitOversizedChunk:
+    """Test suite for split_oversized_chunk method."""
+
+    def test_chunk_under_limit_returns_unchanged(self):
+        """Test that a chunk under the token limit is returned unchanged."""
+        chunker = ConcreteChunker()
+        chunk = Chunk(
+            content="Short content",
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+            metadata={"existing": "data"},
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=100)
+
+        assert len(result) == 1
+        assert result[0].content == "Short content"
+        assert result[0].chunk_index == 0
+        assert result[0].metadata["existing"] == "data"
+        assert "split_part" not in result[0].metadata
+
+    def test_chunk_at_exact_limit_returns_unchanged(self):
+        """Test that a chunk at exactly the token limit is returned unchanged."""
+        chunker = ConcreteChunker()
+        # 40 chars = 10 tokens (using chars/4 approximation)
+        content = "a" * 40
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=10)
+
+        assert len(result) == 1
+        assert result[0].content == content
+
+    def test_split_at_paragraph_boundaries(self):
+        """Test that oversized chunks are split at paragraph boundaries."""
+        chunker = ConcreteChunker()
+        # Create content with clear paragraph boundaries
+        # Each paragraph ~10 tokens, total ~30 tokens
+        content = "First paragraph content.\n\nSecond paragraph content.\n\nThird paragraph content."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        # Set limit to ~15 tokens (60 chars) to force splits
+        result = chunker.split_oversized_chunk(chunk, max_tokens=15)
+
+        assert len(result) > 1
+        # All parts should have split_part metadata
+        for i, part in enumerate(result):
+            assert part.metadata["split_part"] == i
+            assert part.source_file == "/path/to/file.txt"
+
+    def test_split_preserves_source_file(self):
+        """Test that split chunks preserve the source file."""
+        chunker = ConcreteChunker()
+        content = "Para one.\n\nPara two.\n\nPara three."
+        chunk = Chunk(
+            content=content,
+            source_file="/important/document.txt",
+            chunk_index=5,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        for part in result:
+            assert part.source_file == "/important/document.txt"
+
+    def test_split_adds_split_part_metadata(self):
+        """Test that split chunks have split_part metadata."""
+        chunker = ConcreteChunker()
+        content = "First part.\n\nSecond part.\n\nThird part."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        assert len(result) > 1
+        for i, part in enumerate(result):
+            assert part.metadata["split_part"] == i
+
+    def test_split_preserves_existing_metadata(self):
+        """Test that split preserves existing metadata from original chunk."""
+        chunker = ConcreteChunker()
+        content = "Para one.\n\nPara two.\n\nPara three."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+            metadata={"page": 5, "section": "intro"},
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        for part in result:
+            assert part.metadata["page"] == 5
+            assert part.metadata["section"] == "intro"
+
+    def test_split_uses_base_index_for_chunk_indices(self):
+        """Test that split uses base_index parameter for chunk indices."""
+        chunker = ConcreteChunker()
+        content = "Para one.\n\nPara two.\n\nPara three."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5, base_index=10)
+
+        assert result[0].chunk_index == 10
+        if len(result) > 1:
+            assert result[1].chunk_index == 11
+
+    def test_split_falls_back_to_line_boundaries(self):
+        """Test fallback to line boundaries when paragraphs are too large."""
+        chunker = ConcreteChunker()
+        # Single paragraph with multiple lines
+        content = "Line one.\nLine two.\nLine three.\nLine four."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        assert len(result) > 1
+        # Should split at line boundaries
+        for part in result:
+            assert part.content.strip()
+
+    def test_split_handles_very_long_single_line(self):
+        """Test handling of a very long single line that exceeds token limit."""
+        chunker = ConcreteChunker()
+        # Very long line with no natural break points
+        content = "word " * 100  # ~500 chars = ~125 tokens
+        chunk = Chunk(
+            content=content.strip(),
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=20)
+
+        assert len(result) > 1
+        # All parts should be within limits (approximately)
+        for part in result:
+            # Each part should be roughly under the limit
+            assert len(part.content) < 100  # ~25 tokens max with some buffer
+
+    def test_split_empty_result_for_whitespace_paragraphs(self):
+        """Test that whitespace-only paragraphs are filtered out."""
+        chunker = ConcreteChunker()
+        content = "Content one.\n\n   \n\nContent two."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=0,
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        # Should not include empty chunks
+        for part in result:
+            assert part.content.strip()
+
+    def test_split_with_default_base_index(self):
+        """Test that default base_index is 0."""
+        chunker = ConcreteChunker()
+        content = "Para one.\n\nPara two."
+        chunk = Chunk(
+            content=content,
+            source_file="/path/to/file.txt",
+            chunk_index=5,  # Original index doesn't matter
+        )
+        result = chunker.split_oversized_chunk(chunk, max_tokens=5)
+
+        assert result[0].chunk_index == 0

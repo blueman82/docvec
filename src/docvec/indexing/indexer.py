@@ -11,7 +11,6 @@ This module coordinates the entire document indexing pipeline:
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional
 
 from docvec.chunking.base import AbstractChunker, Chunk
 from docvec.chunking.code_chunker import CodeChunker
@@ -41,12 +40,14 @@ class Indexer:
         storage: ChromaStore for persisting embeddings
         chunk_size: Maximum token count per chunk (default: 512)
         batch_size: Number of chunks to embed per batch (default: 32)
+        max_tokens: Maximum tokens per chunk for embedding model limits (default: 512)
 
     Attributes:
         embedder: The embedding client
         storage: The vector storage
         chunk_size: Maximum tokens per chunk
         batch_size: Batch size for embedding
+        max_tokens: Maximum tokens per chunk passed to chunkers
         _chunker_map: Mapping of file extensions to chunker classes
     """
 
@@ -54,8 +55,9 @@ class Indexer:
         self,
         embedder: OllamaClient,
         storage: ChromaStore,
-        chunk_size: int = 256,
-        batch_size: int = 16,
+        chunk_size: int = 512,
+        batch_size: int = 32,
+        max_tokens: int = 512,
     ):
         """Initialize indexer with dependencies.
 
@@ -64,19 +66,23 @@ class Indexer:
             storage: ChromaDB storage instance
             chunk_size: Maximum tokens per chunk
             batch_size: Batch size for embedding calls
+            max_tokens: Maximum tokens per chunk for embedding model limits
 
         Raises:
-            ValueError: If chunk_size or batch_size are invalid
+            ValueError: If chunk_size, batch_size, or max_tokens are invalid
         """
         if chunk_size <= 0:
             raise ValueError(f"chunk_size must be positive, got {chunk_size}")
         if batch_size <= 0:
             raise ValueError(f"batch_size must be positive, got {batch_size}")
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens must be positive, got {max_tokens}")
 
         self.embedder = embedder
         self.storage = storage
         self.chunk_size = chunk_size
         self.batch_size = batch_size
+        self.max_tokens = max_tokens
 
         # Map file extensions to chunker classes
         self._chunker_map: dict[str, type[AbstractChunker]] = {
@@ -140,7 +146,9 @@ class Indexer:
             # Store chunks with embeddings
             chunk_ids = self._store_chunks(valid_chunks, embeddings)
 
-            logger.info(f"Successfully indexed {file_path.name} with {len(chunk_ids)} chunks")
+            logger.info(
+                f"Successfully indexed {file_path.name} with {len(chunk_ids)} chunks"
+            )
             return chunk_ids
 
         except (EmbeddingError, StorageError) as e:
@@ -226,16 +234,22 @@ class Indexer:
 
         if chunker_class == CodeChunker:
             # CodeChunker uses line-based chunk_size for fallback
-            return CodeChunker(chunk_size=100)
+            return CodeChunker(chunk_size=100, max_tokens=self.max_tokens)
         elif chunker_class == MarkdownChunker:
             # MarkdownChunker uses character-based chunk_size
-            return MarkdownChunker(chunk_size=char_chunk_size, chunk_overlap=200)
+            return MarkdownChunker(
+                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+            )
         elif chunker_class == PDFChunker:
             # PDFChunker uses character-based chunk_size
-            return PDFChunker(chunk_size=char_chunk_size, chunk_overlap=200)
+            return PDFChunker(
+                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+            )
         else:
             # TextChunker uses character-based chunk_size
-            return TextChunker(chunk_size=char_chunk_size, chunk_overlap=200)
+            return TextChunker(
+                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+            )
 
     def _validate_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """Validate chunks meet token constraints.
@@ -288,7 +302,9 @@ class Indexer:
         if not chunks:
             return []
 
-        logger.info(f"Generating embeddings for {len(chunks)} chunks in batches of {self.batch_size}")
+        logger.info(
+            f"Generating embeddings for {len(chunks)} chunks in batches of {self.batch_size}"
+        )
 
         try:
             # Extract text content from chunks

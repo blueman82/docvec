@@ -79,9 +79,7 @@ class BatchProcessor:
         # Supported file extensions (must match indexer's capabilities)
         self.supported_extensions = {".md", ".pdf", ".txt", ".py"}
 
-    def process_directory(
-        self, dir_path: Path, recursive: bool = True
-    ) -> BatchResult:
+    def process_directory(self, dir_path: Path, recursive: bool = True) -> BatchResult:
         """Process all supported files in a directory.
 
         Scans directory for supported file types, checks for duplicates,
@@ -118,7 +116,7 @@ class BatchProcessor:
         logger.info(f"Found {len(file_paths)} supported files")
 
         # Process files
-        result = self.process_files(file_paths)
+        result = self.process_files([Path(f) for f in file_paths])
 
         logger.info(
             f"Batch processing complete: {result.new_documents} new, "
@@ -164,7 +162,9 @@ class BatchProcessor:
                 if chunk_ids:
                     result.new_documents += 1
                     result.chunk_ids[str(file_path)] = chunk_ids
-                    logger.info(f"Indexed {file_path.name} with {len(chunk_ids)} chunks")
+                    logger.info(
+                        f"Indexed {file_path.name} with {len(chunk_ids)} chunks"
+                    )
 
             except Exception as e:
                 error_msg = str(e)
@@ -173,7 +173,7 @@ class BatchProcessor:
 
         return result
 
-    def _find_files(self, dir_path: Path, recursive: bool) -> list[Path]:
+    def _find_files(self, dir_path: Path, recursive: bool) -> list[str]:
         """Find all supported files in directory.
 
         Uses glob patterns to find files with supported extensions.
@@ -186,17 +186,17 @@ class BatchProcessor:
         Returns:
             List of file paths with supported extensions
         """
-        file_paths = []
+        file_paths: list[str] = []
 
         for ext in self.supported_extensions:
             if recursive:
                 # Recursive search: **/*.ext
                 pattern = f"**/*{ext}"
-                file_paths.extend(dir_path.glob(pattern))
+                file_paths.extend(str(p) for p in dir_path.glob(pattern))
             else:
                 # Single-level search: *.ext
                 pattern = f"*{ext}"
-                file_paths.extend(dir_path.glob(pattern))
+                file_paths.extend(str(p) for p in dir_path.glob(pattern))
 
         # Sort for deterministic processing order
         return sorted(file_paths)

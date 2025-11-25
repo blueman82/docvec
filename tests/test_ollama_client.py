@@ -1,7 +1,7 @@
 """Tests for Ollama embedding client."""
 
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
@@ -28,11 +28,13 @@ class TestRetryDecorator:
 
     def test_retry_success_after_failures(self):
         """Test function succeeds after initial failures."""
-        mock_func = Mock(side_effect=[
-            requests.RequestException("error1"),
-            requests.RequestException("error2"),
-            "success"
-        ])
+        mock_func = Mock(
+            side_effect=[
+                requests.RequestException("error1"),
+                requests.RequestException("error2"),
+                "success",
+            ]
+        )
         decorated = retry_with_backoff(max_retries=3, base_delay=0.01)(mock_func)
 
         result = decorated()
@@ -52,16 +54,16 @@ class TestRetryDecorator:
 
     def test_retry_exponential_backoff(self):
         """Test exponential backoff delays."""
-        mock_func = Mock(side_effect=[
-            requests.RequestException("error1"),
-            requests.RequestException("error2"),
-            "success"
-        ])
-        decorated = retry_with_backoff(
-            max_retries=3,
-            base_delay=0.1,
-            max_delay=1.0
-        )(mock_func)
+        mock_func = Mock(
+            side_effect=[
+                requests.RequestException("error1"),
+                requests.RequestException("error2"),
+                "success",
+            ]
+        )
+        decorated = retry_with_backoff(max_retries=3, base_delay=0.1, max_delay=1.0)(
+            mock_func
+        )
 
         start_time = time.time()
         result = decorated()
@@ -87,9 +89,7 @@ class TestOllamaClient:
     def test_init_custom_params(self):
         """Test initialization with custom parameters."""
         client = OllamaClient(
-            host="http://custom-host:8080",
-            model="custom-model",
-            timeout=60
+            host="http://custom-host:8080", model="custom-model", timeout=60
         )
 
         assert client.host == "http://custom-host:8080"
@@ -108,10 +108,7 @@ class TestOllamaClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "models": [
-                {"name": "nomic-embed-text"},
-                {"name": "llama2"}
-            ]
+            "models": [{"name": "nomic-embed-text"}, {"name": "llama2"}]
         }
         mock_get.return_value = mock_response
 
@@ -157,9 +154,7 @@ class TestOllamaClient:
         """Test successful single text embedding."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embedding": [0.1, 0.2, 0.3, 0.4, 0.5]
-        }
+        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}
         mock_post.return_value = mock_response
 
         client = OllamaClient()
@@ -222,10 +217,7 @@ class TestOllamaClient:
         # First call fails, second succeeds
         mock_post.side_effect = [
             requests.RequestException("Temporary error"),
-            Mock(
-                status_code=200,
-                json=lambda: {"embedding": [0.1, 0.2, 0.3]}
-            )
+            Mock(status_code=200, json=lambda: {"embedding": [0.1, 0.2, 0.3]}),
         ]
 
         client = OllamaClient()
@@ -237,11 +229,7 @@ class TestOllamaClient:
     @patch.object(OllamaClient, "embed")
     def test_embed_batch_success(self, mock_embed):
         """Test successful batch embedding."""
-        mock_embed.side_effect = [
-            [0.1, 0.2, 0.3],
-            [0.4, 0.5, 0.6],
-            [0.7, 0.8, 0.9]
-        ]
+        mock_embed.side_effect = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
 
         client = OllamaClient()
         texts = ["text1", "text2", "text3"]
@@ -289,7 +277,7 @@ class TestOllamaClient:
         """Test batch embedding propagates individual embedding errors."""
         mock_embed.side_effect = [
             [0.1, 0.2, 0.3],
-            EmbeddingError("Failed to embed text2")
+            EmbeddingError("Failed to embed text2"),
         ]
 
         client = OllamaClient()

@@ -2,7 +2,6 @@
 
 import pytest
 
-from docvec.chunking.base import Chunk
 from docvec.chunking.markdown_chunker import MarkdownChunker
 
 
@@ -36,10 +35,14 @@ class TestMarkdownChunker:
 
     def test_init_overlap_exceeds_chunk_size(self):
         """Test that overlap >= chunk_size raises error."""
-        with pytest.raises(ValueError, match="chunk_overlap.*must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap.*must be less than chunk_size"
+        ):
             MarkdownChunker(chunk_size=100, chunk_overlap=100)
 
-        with pytest.raises(ValueError, match="chunk_overlap.*must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap.*must be less than chunk_size"
+        ):
             MarkdownChunker(chunk_size=100, chunk_overlap=150)
 
     def test_chunk_empty_content_raises_error(self):
@@ -65,12 +68,15 @@ It has multiple lines of content."""
         chunks = chunker.chunk(content, "/docs/readme.md")
 
         assert len(chunks) == 1
-        assert chunks[0].content == "This is the introduction section.\nIt has multiple lines of content."
+        assert (
+            chunks[0].content
+            == "This is the introduction section.\nIt has multiple lines of content."
+        )
         assert chunks[0].source_file == "/docs/readme.md"
         assert chunks[0].chunk_index == 0
-        assert chunks[0].metadata['header_path'] == "Introduction"
-        assert chunks[0].metadata['header_level'] == 1
-        assert chunks[0].metadata['header_title'] == "Introduction"
+        assert chunks[0].metadata["header_path"] == "Introduction"
+        assert chunks[0].metadata["header_level"] == 1
+        assert chunks[0].metadata["header_title"] == "Introduction"
 
     def test_chunk_multiple_h1_headers(self):
         """Test chunking markdown with multiple top-level headers."""
@@ -86,9 +92,9 @@ Content of chapter 2."""
         chunks = chunker.chunk(content, "/docs/book.md")
 
         assert len(chunks) == 2
-        assert chunks[0].metadata['header_path'] == "Chapter 1"
+        assert chunks[0].metadata["header_path"] == "Chapter 1"
         assert chunks[0].content == "Content of chapter 1."
-        assert chunks[1].metadata['header_path'] == "Chapter 2"
+        assert chunks[1].metadata["header_path"] == "Chapter 2"
         assert chunks[1].content == "Content of chapter 2."
 
     def test_chunk_nested_headers(self):
@@ -113,17 +119,20 @@ Content of subsection 1.2.1."""
         chunks = chunker.chunk(content, "/docs/manual.md")
 
         assert len(chunks) == 4
-        assert chunks[0].metadata['header_path'] == "Chapter 1"
-        assert chunks[0].metadata['header_level'] == 1
+        assert chunks[0].metadata["header_path"] == "Chapter 1"
+        assert chunks[0].metadata["header_level"] == 1
 
-        assert chunks[1].metadata['header_path'] == "Chapter 1 > Section 1.1"
-        assert chunks[1].metadata['header_level'] == 2
+        assert chunks[1].metadata["header_path"] == "Chapter 1 > Section 1.1"
+        assert chunks[1].metadata["header_level"] == 2
 
-        assert chunks[2].metadata['header_path'] == "Chapter 1 > Section 1.2"
-        assert chunks[2].metadata['header_level'] == 2
+        assert chunks[2].metadata["header_path"] == "Chapter 1 > Section 1.2"
+        assert chunks[2].metadata["header_level"] == 2
 
-        assert chunks[3].metadata['header_path'] == "Chapter 1 > Section 1.2 > Subsection 1.2.1"
-        assert chunks[3].metadata['header_level'] == 3
+        assert (
+            chunks[3].metadata["header_path"]
+            == "Chapter 1 > Section 1.2 > Subsection 1.2.1"
+        )
+        assert chunks[3].metadata["header_level"] == 3
 
     def test_chunk_header_hierarchy_reset(self):
         """Test that header hierarchy resets properly when moving up levels."""
@@ -144,8 +153,11 @@ Back to level 2."""
 
         # Only sections with content are included
         assert len(chunks) == 2
-        assert chunks[0].metadata['header_path'] == "Chapter 1 > Section 1.1 > Subsection 1.1.1"
-        assert chunks[1].metadata['header_path'] == "Chapter 1 > Section 1.2"
+        assert (
+            chunks[0].metadata["header_path"]
+            == "Chapter 1 > Section 1.1 > Subsection 1.1.1"
+        )
+        assert chunks[1].metadata["header_path"] == "Chapter 1 > Section 1.2"
 
     def test_chunk_no_headers(self):
         """Test chunking plain text without headers."""
@@ -157,8 +169,8 @@ It should still be chunked properly."""
         chunks = chunker.chunk(content, "/docs/plain.md")
 
         assert len(chunks) == 1
-        assert chunks[0].metadata['header_path'] == "Document"
-        assert chunks[0].metadata['header_level'] == 0
+        assert chunks[0].metadata["header_path"] == "Document"
+        assert chunks[0].metadata["header_level"] == 0
         assert "This is plain text" in chunks[0].content
 
     def test_chunk_long_section_splits_by_paragraphs(self):
@@ -179,8 +191,8 @@ This is the third paragraph with even more content."""
 
         # All chunks should have same header metadata
         for chunk in chunks:
-            assert chunk.metadata['header_path'] == "Long Section"
-            assert chunk.metadata['header_level'] == 1
+            assert chunk.metadata["header_path"] == "Long Section"
+            assert chunk.metadata["header_level"] == 1
 
     def test_chunk_overlap_between_chunks(self):
         """Test that overlap is applied between chunks."""
@@ -261,8 +273,8 @@ Content."""
 
         # Find the deepest chunk
         deepest_chunk = chunks[-1]
-        assert deepest_chunk.metadata['header_path'] == "H1 > H2 > H3 > H4 > H5 > H6"
-        assert deepest_chunk.metadata['header_level'] == 6
+        assert deepest_chunk.metadata["header_path"] == "H1 > H2 > H3 > H4 > H5 > H6"
+        assert deepest_chunk.metadata["header_level"] == 6
 
     def test_chunk_empty_sections_skipped(self):
         """Test that sections with no content are skipped."""
@@ -279,7 +291,7 @@ Content here.
 
         # Should only have chunk for Header 2 which has content
         assert len(chunks) == 1
-        assert chunks[0].metadata['header_title'] == "Header 2"
+        assert chunks[0].metadata["header_title"] == "Header 2"
 
     def test_chunk_whitespace_handling(self):
         """Test proper handling of whitespace in content."""
@@ -317,9 +329,9 @@ Final content."""
         chunks = chunker.chunk(content, "/docs/special.md")
 
         assert len(chunks) == 3
-        assert chunks[0].metadata['header_title'] == "Introduction: Getting Started"
-        assert chunks[1].metadata['header_title'] == "Step 1: Install Dependencies"
-        assert chunks[2].metadata['header_title'] == "Note: Important!"
+        assert chunks[0].metadata["header_title"] == "Introduction: Getting Started"
+        assert chunks[1].metadata["header_title"] == "Step 1: Install Dependencies"
+        assert chunks[2].metadata["header_title"] == "Note: Important!"
 
     def test_parse_sections_basic(self):
         """Test _parse_sections method directly."""
@@ -331,9 +343,9 @@ Content."""
         sections = chunker._parse_sections(content)
 
         assert len(sections) == 1
-        assert sections[0]['level'] == 1
-        assert sections[0]['title'] == "Header"
-        assert sections[0]['content'] == "Content."
+        assert sections[0]["level"] == 1
+        assert sections[0]["title"] == "Header"
+        assert sections[0]["content"] == "Content."
 
     def test_get_overlap_short_text(self):
         """Test _get_overlap with text shorter than overlap size."""
@@ -415,7 +427,7 @@ If you encounter issues, check our FAQ."""
         assert len(chunks) >= 3
 
         # Verify hierarchy is preserved
-        header_paths = [c.metadata['header_path'] for c in chunks]
+        header_paths = [c.metadata["header_path"] for c in chunks]
         assert "User Guide" in header_paths[0]
         assert "Installation" in str(header_paths)
         assert "Getting Started" in str(header_paths)

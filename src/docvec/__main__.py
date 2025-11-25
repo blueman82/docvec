@@ -19,8 +19,8 @@ Usage:
 """
 
 import argparse
-import asyncio
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -33,6 +33,7 @@ from docvec.embedding.ollama_client import OllamaClient
 from docvec.indexing.batch_processor import BatchProcessor
 from docvec.indexing.indexer import Indexer
 from docvec.mcp_tools.indexing_tools import IndexingTools
+from docvec.mcp_tools.management_tools import ManagementTools
 from docvec.mcp_tools.query_tools import QueryTools
 from docvec.storage.chroma_store import ChromaStore
 
@@ -41,6 +42,7 @@ mcp = FastMCP("vector-mcp")
 
 # Global components (initialized in main)
 indexing_tools: Optional[IndexingTools] = None
+management_tools: Optional[ManagementTools] = None
 query_tools: Optional[QueryTools] = None
 
 logger = logging.getLogger(__name__)
@@ -89,19 +91,19 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--host",
         type=str,
-        default="http://localhost:11434",
+        default=os.environ.get("DOCVEC_HOST", "http://localhost:11434"),
         help="Ollama server host URL",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="nomic-embed-text",
+        default=os.environ.get("DOCVEC_MODEL", "nomic-embed-text"),
         help="Ollama embedding model name",
     )
     parser.add_argument(
         "--timeout",
         type=int,
-        default=30,
+        default=int(os.environ.get("DOCVEC_TIMEOUT", "30")),
         help="Ollama request timeout in seconds",
     )
 
@@ -109,13 +111,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--db-path",
         type=str,
-        default="./chroma_db",
+        default=os.environ.get("DOCVEC_DB_PATH", "./chroma_db"),
         help="ChromaDB persistent storage directory path",
     )
     parser.add_argument(
         "--collection",
         type=str,
-        default="documents",
+        default=os.environ.get("DOCVEC_COLLECTION", "documents"),
         help="ChromaDB collection name",
     )
 
@@ -123,21 +125,27 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=256,
+        default=int(os.environ.get("DOCVEC_CHUNK_SIZE", "512")),
         help="Maximum tokens per chunk",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=16,
+        default=int(os.environ.get("DOCVEC_BATCH_SIZE", "32")),
         help="Batch size for embedding generation",
+    )
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=int(os.environ.get("DOCVEC_MAX_TOKENS", "512")),
+        help="Maximum tokens per chunk for embedding model limits",
     )
 
     # Logging configuration
     parser.add_argument(
         "--log-level",
         type=str,
-        default="INFO",
+        default=os.environ.get("DOCVEC_LOG_LEVEL", "INFO"),
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Logging level",
     )
@@ -164,7 +172,7 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
         Exception: If any component initialization fails
     """
     logger.info("Initializing components...")
-    components = {}
+    components: dict[str, Any] = {}
 
     try:
         # 1. Initialize Ollama client (embedding service)
@@ -185,29 +193,39 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
 
         # 2. Initialize ChromaDB storage
         db_path = Path(args.db_path).resolve()
-        logger.info(f"Initializing ChromaStore (path={db_path}, collection={args.collection})")
+        logger.info(
+            f"Initializing ChromaStore (path={db_path}, collection={args.collection})"
+        )
         storage = ChromaStore(
             db_path=db_path,
             collection_name=args.collection,
         )
         components["storage"] = storage
 
-        # 3. Initialize DocumentHasher for deduplication
+        # 3. Initialize ManagementTools (MCP tools for collection management)
+        logger.info("Initializing ManagementTools")
+        management = ManagementTools(storage=storage)
+        components["management_tools"] = management
+
+        # 4. Initialize DocumentHasher for deduplication
         logger.info("Initializing DocumentHasher")
         hasher = DocumentHasher()
         components["hasher"] = hasher
 
-        # 4. Initialize Indexer (orchestrates chunking, embedding, storage)
-        logger.info(f"Initializing Indexer (chunk_size={args.chunk_size}, batch_size={args.batch_size})")
+        # 5. Initialize Indexer (orchestrates chunking, embedding, storage)
+        logger.info(
+            f"Initializing Indexer (chunk_size={args.chunk_size}, batch_size={args.batch_size}, max_tokens={args.max_tokens})"
+        )
         indexer = Indexer(
             embedder=embedder,
             storage=storage,
             chunk_size=args.chunk_size,
             batch_size=args.batch_size,
+            max_tokens=args.max_tokens,
         )
         components["indexer"] = indexer
 
-        # 5. Initialize BatchProcessor (directory indexing with deduplication)
+        # 6. Initialize BatchProcessor (directory indexing with deduplication)
         logger.info("Initializing BatchProcessor")
         batch_processor = BatchProcessor(
             indexer=indexer,
@@ -216,7 +234,7 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
         )
         components["batch_processor"] = batch_processor
 
-        # 6. Initialize IndexingTools (MCP tools for indexing)
+        # 7. Initialize IndexingTools (MCP tools for indexing)
         logger.info("Initializing IndexingTools")
         indexing = IndexingTools(
             batch_processor=batch_processor,
@@ -224,7 +242,7 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
         )
         components["indexing_tools"] = indexing
 
-        # 7. Initialize QueryTools (MCP tools for search)
+        # 8. Initialize QueryTools (MCP tools for search)
         logger.info("Initializing QueryTools")
         query = QueryTools(
             embedder=embedder,
@@ -344,6 +362,73 @@ async def search_with_budget(query: str, max_tokens: int) -> dict[str, Any]:
         return {"error": str(e)}
 
 
+# MCP Tool Handlers - Delete by IDs
+@mcp.tool()
+async def delete_chunks(ids: list[str]) -> dict[str, Any]:
+    """Delete specific chunks by their IDs.
+
+    Args:
+        ids: List of chunk IDs to delete
+
+    Returns:
+        Result dictionary with deleted count and IDs
+    """
+    if management_tools is None:
+        return {"error": "Server not initialized"}
+
+    return await management_tools.delete_by_ids(ids)
+
+
+# MCP Tool Handlers - Delete by File
+@mcp.tool()
+async def delete_file(source_file: str) -> dict[str, Any]:
+    """Delete all chunks from a specific source file.
+
+    Args:
+        source_file: Source file path to delete chunks for
+
+    Returns:
+        Result dictionary with deleted count and source file
+    """
+    if management_tools is None:
+        return {"error": "Server not initialized"}
+
+    return await management_tools.delete_by_file(source_file)
+
+
+# MCP Tool Handlers - Clear Index
+@mcp.tool()
+async def clear_index(confirm: bool) -> dict[str, Any]:
+    """Delete all documents from the collection.
+
+    Requires explicit confirmation to prevent accidental data loss.
+
+    Args:
+        confirm: Must be True to proceed with deletion
+
+    Returns:
+        Result dictionary with deleted count or error if not confirmed
+    """
+    if management_tools is None:
+        return {"error": "Server not initialized"}
+
+    return await management_tools.delete_all(confirm)
+
+
+# MCP Tool Handlers - Get Index Stats
+@mcp.tool()
+async def get_index_stats() -> dict[str, Any]:
+    """Get collection statistics.
+
+    Returns:
+        Result dictionary with total chunks, unique files, and source file list
+    """
+    if management_tools is None:
+        return {"error": "Server not initialized"}
+
+    return await management_tools.get_stats()
+
+
 def handle_shutdown(signum, frame):
     """Handle SIGINT/SIGTERM for graceful shutdown.
 
@@ -373,7 +458,7 @@ def main() -> None:
         Uses stdio transport for MCP communication. All logging
         goes to stderr to avoid corrupting JSON-RPC messages on stdout.
     """
-    global indexing_tools, query_tools
+    global indexing_tools, management_tools, query_tools
 
     # Parse arguments
     args = parse_arguments()
@@ -382,7 +467,9 @@ def main() -> None:
     setup_logging(args.log_level)
 
     logger.info("Starting Vector MCP Server...")
-    logger.info(f"Configuration: host={args.host}, model={args.model}, db_path={args.db_path}")
+    logger.info(
+        f"Configuration: host={args.host}, model={args.model}, db_path={args.db_path}, max_tokens={args.max_tokens}"
+    )
 
     try:
         # Initialize all components
@@ -390,6 +477,7 @@ def main() -> None:
 
         # Set global tool instances for handlers
         indexing_tools = components["indexing_tools"]
+        management_tools = components["management_tools"]
         query_tools = components["query_tools"]
 
         # Register signal handlers for graceful shutdown

@@ -140,7 +140,7 @@ class ChromaStore:
             ids = [self._generate_id() for _ in range(len(embeddings))]
 
             # Add to ChromaDB collection
-            self._collection.add(
+            self._collection.add(  # type: ignore[arg-type]
                 ids=ids,
                 embeddings=embeddings,
                 documents=documents,
@@ -184,7 +184,7 @@ class ChromaStore:
         """
         try:
             # Perform semantic search
-            results = self._collection.query(
+            results = self._collection.query(  # type: ignore[arg-type]
                 query_embeddings=[query_embedding],
                 n_results=n_results,
                 where=where,
@@ -276,3 +276,142 @@ class ChromaStore:
 
         except Exception as e:
             raise StorageError(f"Failed to count documents: {e}") from e
+
+    def get_by_source_file(self, source_file: str) -> Optional[dict]:
+        """Get all chunks from a specific source file.
+
+        Args:
+            source_file: Source file path to query for
+
+        Returns:
+            Dictionary with document data if found, None otherwise.
+            Contains: ids, documents, metadatas
+
+        Raises:
+            StorageError: If query operation fails
+
+        Example:
+            >>> result = store.get_by_source_file("readme.md")
+            >>> if result:
+            ...     print(f"Found {len(result['ids'])} chunks")
+        """
+        try:
+            results = self._collection.get(
+                where={"source_file": source_file},
+                include=["documents", "metadatas"],
+            )
+
+            if not results["ids"]:
+                return None
+
+            return {
+                "ids": results["ids"],
+                "documents": results["documents"],
+                "metadatas": results["metadatas"],
+            }
+
+        except Exception as e:
+            raise StorageError(f"Failed to get documents by source file: {e}") from e
+
+    def delete_by_source_file(self, source_file: str) -> int:
+        """Delete all chunks from a specific source file.
+
+        Args:
+            source_file: Source file path to delete chunks for
+
+        Returns:
+            Number of chunks deleted
+
+        Raises:
+            StorageError: If delete operation fails
+
+        Example:
+            >>> deleted = store.delete_by_source_file("old_file.md")
+            >>> print(f"Deleted {deleted} chunks")
+        """
+        try:
+            result = self.get_by_source_file(source_file)
+            if result is None:
+                return 0
+
+            ids_to_delete = result["ids"]
+            self._collection.delete(ids=ids_to_delete)
+            return len(ids_to_delete)
+
+        except StorageError:
+            raise
+        except Exception as e:
+            raise StorageError(f"Failed to delete documents by source file: {e}") from e
+
+    def clear_collection(self) -> int:
+        """Delete all documents by dropping and recreating the collection.
+
+        This method uses atomic collection deletion/recreation instead of
+        deleting documents individually, which prevents WAL corruption
+        when clearing large collections.
+
+        Returns:
+            Number of documents deleted
+
+        Raises:
+            StorageError: If clear operation fails
+
+        Example:
+            >>> deleted = store.clear_collection()
+            >>> print(f"Cleared {deleted} documents")
+        """
+        try:
+            current_count = self._collection.count()
+            if current_count == 0:
+                return 0
+
+            # Delete and recreate collection atomically
+            # This avoids WAL corruption from mass individual deletes
+            self._client.delete_collection(self.collection_name)
+            self._collection = self._get_or_create_collection()
+            return current_count
+
+        except Exception as e:
+            raise StorageError(f"Failed to clear collection: {e}") from e
+
+    def get_stats(self) -> dict:
+        """Get collection statistics.
+
+        Returns:
+            Dictionary containing:
+                - total_chunks: Total number of chunks in collection
+                - unique_files: Number of unique source files
+                - source_files: List of unique source file paths
+
+        Raises:
+            StorageError: If stats operation fails
+
+        Example:
+            >>> stats = store.get_stats()
+            >>> print(f"Total: {stats['total_chunks']} chunks from {stats['unique_files']} files")
+        """
+        try:
+            total_chunks = self._collection.count()
+            if total_chunks == 0:
+                return {
+                    "total_chunks": 0,
+                    "unique_files": 0,
+                    "source_files": [],
+                }
+
+            all_docs = self._collection.get(include=["metadatas"])
+            source_files = set()
+            if all_docs["metadatas"]:
+                for metadata in all_docs["metadatas"]:
+                    if metadata and "source_file" in metadata:
+                        source_files.add(metadata["source_file"])
+
+            sorted_files = sorted(source_files)  # type: ignore[type-var]
+            return {
+                "total_chunks": total_chunks,
+                "unique_files": len(sorted_files),
+                "source_files": sorted_files,
+            }
+
+        except Exception as e:
+            raise StorageError(f"Failed to get collection stats: {e}") from e

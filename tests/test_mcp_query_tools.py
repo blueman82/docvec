@@ -8,8 +8,7 @@ This module tests QueryTools functionality including:
 - Error handling
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -321,7 +320,9 @@ class TestSearchWithFilters:
             await query_tools.search_with_filters("test", filters=["list"])
 
     @pytest.mark.asyncio
-    async def test_search_with_filters_invalid_n_results_raises_error(self, query_tools):
+    async def test_search_with_filters_invalid_n_results_raises_error(
+        self, query_tools
+    ):
         """Test that invalid n_results raises ValueError."""
         with pytest.raises(ValueError, match="n_results must be at least 1"):
             await query_tools.search_with_filters("test", filters={}, n_results=0)

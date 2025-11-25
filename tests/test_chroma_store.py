@@ -8,9 +8,6 @@ This module tests ChromaStore functionality including:
 - Hash-based deduplication
 """
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from docvec.storage.chroma_store import ChromaStore, StorageError
@@ -64,7 +61,7 @@ class TestChromaStoreInitialization:
     def test_init_creates_db_directory(self, temp_db_path):
         """Test that initialization creates database directory."""
         assert not temp_db_path.exists()
-        store = ChromaStore(db_path=temp_db_path)
+        ChromaStore(db_path=temp_db_path)
         assert temp_db_path.exists()
         assert temp_db_path.is_dir()
 
@@ -88,7 +85,7 @@ class TestChromaStoreInitialization:
         """Test that data persists across ChromaStore instances."""
         # Create first instance and add data
         store1 = ChromaStore(db_path=temp_db_path)
-        ids1 = store1.add(
+        store1.add(
             embeddings=[[0.1, 0.2, 0.3]],
             documents=["test document"],
             metadatas=[{"doc_hash": "test_hash"}],
@@ -161,7 +158,7 @@ class TestChromaStoreAdd:
         self, chroma_store, sample_embeddings, sample_documents, sample_metadatas
     ):
         """Test that metadata is preserved during add."""
-        ids = chroma_store.add(
+        chroma_store.add(
             embeddings=sample_embeddings,
             documents=sample_documents,
             metadatas=sample_metadatas,
@@ -426,3 +423,172 @@ class TestChromaStoreEdgeCases:
         )
 
         assert results["ids"] == []
+
+
+class TestChromaStoreGetBySourceFile:
+    """Test querying documents by source file."""
+
+    def test_get_by_source_file_existing(
+        self, chroma_store, sample_embeddings, sample_documents, sample_metadatas
+    ):
+        """Test getting documents by existing source file."""
+        chroma_store.add(
+            embeddings=sample_embeddings,
+            documents=sample_documents,
+            metadatas=sample_metadatas,
+        )
+
+        result = chroma_store.get_by_source_file("file1.py")
+
+        assert result is not None
+        assert len(result["ids"]) == 2  # Two chunks from file1.py
+        for metadata in result["metadatas"]:
+            assert metadata["source_file"] == "file1.py"
+
+    def test_get_by_source_file_nonexistent(self, chroma_store):
+        """Test getting documents by nonexistent source file returns None."""
+        result = chroma_store.get_by_source_file("nonexistent.py")
+        assert result is None
+
+    def test_get_by_source_file_single_chunk(self, chroma_store):
+        """Test getting a source file with single chunk."""
+        chroma_store.add(
+            embeddings=[[0.1, 0.2, 0.3]],
+            documents=["single chunk"],
+            metadatas=[
+                {"doc_hash": "hash1", "source_file": "single.py", "chunk_index": 0}
+            ],
+        )
+
+        result = chroma_store.get_by_source_file("single.py")
+
+        assert result is not None
+        assert len(result["ids"]) == 1
+        assert result["documents"][0] == "single chunk"
+
+
+class TestChromaStoreDeleteBySourceFile:
+    """Test deleting documents by source file."""
+
+    def test_delete_by_source_file_existing(
+        self, chroma_store, sample_embeddings, sample_documents, sample_metadatas
+    ):
+        """Test deleting documents by existing source file."""
+        chroma_store.add(
+            embeddings=sample_embeddings,
+            documents=sample_documents,
+            metadatas=sample_metadatas,
+        )
+
+        assert chroma_store.count() == 3
+        deleted_count = chroma_store.delete_by_source_file("file1.py")
+
+        assert deleted_count == 2  # Two chunks from file1.py
+        assert chroma_store.count() == 1  # Only file2.md chunk remains
+
+    def test_delete_by_source_file_nonexistent(self, chroma_store):
+        """Test deleting nonexistent source file returns zero."""
+        deleted_count = chroma_store.delete_by_source_file("nonexistent.py")
+        assert deleted_count == 0
+
+    def test_delete_by_source_file_returns_correct_count(self, chroma_store):
+        """Test delete returns the correct count of deleted chunks."""
+        # Add 5 chunks from same file
+        chroma_store.add(
+            embeddings=[[0.1] * 3 for _ in range(5)],
+            documents=[f"chunk {i}" for i in range(5)],
+            metadatas=[
+                {"doc_hash": f"hash{i}", "source_file": "multi.py", "chunk_index": i}
+                for i in range(5)
+            ],
+        )
+
+        deleted_count = chroma_store.delete_by_source_file("multi.py")
+        assert deleted_count == 5
+        assert chroma_store.count() == 0
+
+
+class TestChromaStoreClearCollection:
+    """Test clearing the entire collection."""
+
+    def test_clear_collection_with_documents(
+        self, chroma_store, sample_embeddings, sample_documents, sample_metadatas
+    ):
+        """Test clearing a collection with documents."""
+        chroma_store.add(
+            embeddings=sample_embeddings,
+            documents=sample_documents,
+            metadatas=sample_metadatas,
+        )
+
+        assert chroma_store.count() == 3
+        deleted_count = chroma_store.clear_collection()
+
+        assert deleted_count == 3
+        assert chroma_store.count() == 0
+
+    def test_clear_empty_collection(self, chroma_store):
+        """Test clearing an empty collection returns zero."""
+        deleted_count = chroma_store.clear_collection()
+        assert deleted_count == 0
+        assert chroma_store.count() == 0
+
+    def test_clear_collection_large_batch(self, chroma_store):
+        """Test clearing a collection with many documents."""
+        batch_size = 100
+        chroma_store.add(
+            embeddings=[[0.1, 0.2, 0.3] for _ in range(batch_size)],
+            documents=[f"doc {i}" for i in range(batch_size)],
+            metadatas=[{"doc_hash": f"hash{i}"} for i in range(batch_size)],
+        )
+
+        deleted_count = chroma_store.clear_collection()
+        assert deleted_count == batch_size
+        assert chroma_store.count() == 0
+
+
+class TestChromaStoreGetStats:
+    """Test collection statistics."""
+
+    def test_get_stats_with_documents(
+        self, chroma_store, sample_embeddings, sample_documents, sample_metadatas
+    ):
+        """Test getting stats from a populated collection."""
+        chroma_store.add(
+            embeddings=sample_embeddings,
+            documents=sample_documents,
+            metadatas=sample_metadatas,
+        )
+
+        stats = chroma_store.get_stats()
+
+        assert stats["total_chunks"] == 3
+        assert stats["unique_files"] == 2  # file1.py and file2.md
+        assert "file1.py" in stats["source_files"]
+        assert "file2.md" in stats["source_files"]
+
+    def test_get_stats_empty_collection(self, chroma_store):
+        """Test getting stats from an empty collection."""
+        stats = chroma_store.get_stats()
+
+        assert stats["total_chunks"] == 0
+        assert stats["unique_files"] == 0
+        assert stats["source_files"] == []
+
+    def test_get_stats_single_file(self, chroma_store):
+        """Test stats with chunks from a single file."""
+        chroma_store.add(
+            embeddings=[[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]],
+            documents=["chunk 1", "chunk 2", "chunk 3"],
+            metadatas=[
+                {"doc_hash": "h1", "source_file": "only.py", "chunk_index": 0},
+                {"doc_hash": "h2", "source_file": "only.py", "chunk_index": 1},
+                {"doc_hash": "h3", "source_file": "only.py", "chunk_index": 2},
+            ],
+        )
+
+        stats = chroma_store.get_stats()
+
+        assert stats["total_chunks"] == 3
+        assert stats["unique_files"] == 1
+        assert stats["source_files"] == ["only.py"]

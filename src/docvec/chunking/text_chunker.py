@@ -15,27 +15,36 @@ class TextChunker(AbstractChunker):
     Attributes:
         chunk_size: Maximum character length for a chunk
         chunk_overlap: Number of characters to overlap between chunks
+        max_tokens: Maximum tokens per chunk (enforced via split_oversized_chunk)
     """
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(
+        self, chunk_size: int = 1000, chunk_overlap: int = 200, max_tokens: int = 256
+    ):
         """Initialize text chunker.
 
         Args:
             chunk_size: Maximum characters per chunk
             chunk_overlap: Overlap between chunks in characters
+            max_tokens: Maximum tokens per chunk (uses 4 chars ≈ 1 token approximation)
 
         Raises:
-            ValueError: If chunk_size <= 0 or chunk_overlap < 0
+            ValueError: If chunk_size <= 0 or chunk_overlap < 0 or max_tokens <= 0
         """
         if chunk_size <= 0:
             raise ValueError(f"chunk_size must be positive, got {chunk_size}")
         if chunk_overlap < 0:
             raise ValueError(f"chunk_overlap must be non-negative, got {chunk_overlap}")
         if chunk_overlap >= chunk_size:
-            raise ValueError(f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})"
+            )
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens must be positive, got {max_tokens}")
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.max_tokens = max_tokens
 
     def chunk(self, content: str, source_file: str) -> list[Chunk]:
         """Split content into chunks.
@@ -72,13 +81,11 @@ class TextChunker(AbstractChunker):
                 continue
 
             # Count lines in this paragraph
-            paragraph_lines = paragraph.count('\n') + 1
+            paragraph_lines = paragraph.count("\n") + 1
 
             # Chunk this paragraph
             paragraph_chunks = self._chunk_paragraph(
-                paragraph,
-                current_line,
-                previous_sentences
+                paragraph, current_line, previous_sentences
             )
 
             # Add chunks with proper indexing
@@ -88,18 +95,21 @@ class TextChunker(AbstractChunker):
                         content=para_chunk["content"],
                         source_file=source_file,
                         chunk_index=len(chunks),
-                        metadata=para_chunk["metadata"]
+                        metadata=para_chunk["metadata"],
                     )
                 )
 
             # Update previous sentences for overlap
             if paragraph_chunks:
                 last_content = paragraph_chunks[-1]["content"]
-                previous_sentences = self._split_sentences(last_content)[-2:] if last_content else []
+                previous_sentences = (
+                    self._split_sentences(last_content)[-2:] if last_content else []
+                )
 
             current_line += paragraph_lines
 
-        return chunks
+        # Post-process: split any oversized chunks and rebuild indices
+        return self._split_oversized_chunks(chunks)
 
     def _split_paragraphs(self, content: str) -> list[str]:
         """Split content by blank lines (paragraph boundaries).
@@ -111,14 +121,14 @@ class TextChunker(AbstractChunker):
             List of paragraph strings
         """
         # Split on one or more blank lines
-        paragraphs = re.split(r'\n\s*\n', content)
+        paragraphs = re.split(r"\n\s*\n", content)
         return [p for p in paragraphs if p.strip()]
 
     def _chunk_paragraph(
         self,
         paragraph: str,
         start_line: int,
-        previous_sentences: Optional[list[str]] = None
+        previous_sentences: Optional[list[str]] = None,
     ) -> list[dict]:
         """Chunk a single paragraph, splitting by sentences if needed.
 
@@ -134,13 +144,15 @@ class TextChunker(AbstractChunker):
 
         # If paragraph fits in chunk_size, return as-is
         if len(paragraph) <= self.chunk_size:
-            return [{
-                "content": paragraph,
-                "metadata": {
-                    "start_line": start_line,
-                    "end_line": start_line + paragraph.count('\n')
+            return [
+                {
+                    "content": paragraph,
+                    "metadata": {
+                        "start_line": start_line,
+                        "end_line": start_line + paragraph.count("\n"),
+                    },
                 }
-            }]
+            ]
 
         # Split by sentences
         sentences = self._split_sentences(paragraph)
@@ -151,7 +163,7 @@ class TextChunker(AbstractChunker):
 
         # Add overlap from previous paragraph
         if previous_sentences and self.chunk_overlap > 0:
-            overlap_text = ' '.join(previous_sentences)
+            overlap_text = " ".join(previous_sentences)
             if len(overlap_text) <= self.chunk_overlap:
                 current_chunk.extend(previous_sentences)
                 current_length = len(overlap_text) + 1  # +1 for space
@@ -162,21 +174,23 @@ class TextChunker(AbstractChunker):
             # If adding this sentence exceeds chunk_size, start new chunk
             if current_chunk and current_length + sentence_len > self.chunk_size:
                 # Save current chunk
-                chunk_text = ' '.join(current_chunk)
-                line_count = chunk_text.count('\n')
-                chunks.append({
-                    "content": chunk_text,
-                    "metadata": {
-                        "start_line": chunk_start_line,
-                        "end_line": chunk_start_line + line_count
+                chunk_text = " ".join(current_chunk)
+                line_count = chunk_text.count("\n")
+                chunks.append(
+                    {
+                        "content": chunk_text,
+                        "metadata": {
+                            "start_line": chunk_start_line,
+                            "end_line": chunk_start_line + line_count,
+                        },
                     }
-                })
+                )
 
                 # Start new chunk with overlap
                 if self.chunk_overlap > 0 and len(current_chunk) >= 2:
                     # Include last 2 sentences for overlap
                     overlap_sentences = current_chunk[-2:]
-                    overlap_text = ' '.join(overlap_sentences)
+                    overlap_text = " ".join(overlap_sentences)
 
                     if len(overlap_text) <= self.chunk_overlap:
                         current_chunk = overlap_sentences.copy()
@@ -195,15 +209,17 @@ class TextChunker(AbstractChunker):
 
         # Add final chunk
         if current_chunk:
-            chunk_text = ' '.join(current_chunk)
-            line_count = chunk_text.count('\n')
-            chunks.append({
-                "content": chunk_text,
-                "metadata": {
-                    "start_line": chunk_start_line,
-                    "end_line": chunk_start_line + line_count
+            chunk_text = " ".join(current_chunk)
+            line_count = chunk_text.count("\n")
+            chunks.append(
+                {
+                    "content": chunk_text,
+                    "metadata": {
+                        "start_line": chunk_start_line,
+                        "end_line": chunk_start_line + line_count,
+                    },
                 }
-            })
+            )
 
         return chunks
 
@@ -218,13 +234,13 @@ class TextChunker(AbstractChunker):
         """
         # Split on sentence boundaries (., !, ?)
         # Keep the punctuation with the sentence
-        sentences = re.split(r'([.!?]+(?:\s|$))', text)
+        sentences = re.split(r"([.!?]+(?:\s|$))", text)
 
         # Recombine sentences with their punctuation
         result = []
         for i in range(0, len(sentences) - 1, 2):
             sentence = sentences[i]
-            punctuation = sentences[i + 1] if i + 1 < len(sentences) else ''
+            punctuation = sentences[i + 1] if i + 1 < len(sentences) else ""
             combined = (sentence + punctuation).strip()
             if combined:
                 result.append(combined)
@@ -233,4 +249,21 @@ class TextChunker(AbstractChunker):
         if len(sentences) % 2 == 1 and sentences[-1].strip():
             result.append(sentences[-1].strip())
 
+        return result
+
+    def _split_oversized_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
+        """Split any chunks exceeding max_tokens and rebuild indices.
+
+        Args:
+            chunks: Original list of chunks
+
+        Returns:
+            New list with oversized chunks split, indices rebuilt
+        """
+        result: list[Chunk] = []
+        for chunk in chunks:
+            split_chunks = self.split_oversized_chunk(
+                chunk, self.max_tokens, base_index=len(result)
+            )
+            result.extend(split_chunks)
         return result

@@ -1,14 +1,10 @@
 """Tests for PDF chunker."""
 
-import io
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
-from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
-from docvec.chunking.base import Chunk
 from docvec.chunking.pdf_chunker import PDFChunker
 
 
@@ -44,12 +40,16 @@ class TestPDFChunkerInit:
 
     def test_init_overlap_exceeds_chunk_size(self):
         """Test that overlap >= chunk_size raises error."""
-        with pytest.raises(ValueError, match="chunk_overlap.*must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap.*must be less than chunk_size"
+        ):
             PDFChunker(chunk_size=100, chunk_overlap=100)
 
     def test_init_overlap_greater_than_chunk_size(self):
         """Test that overlap > chunk_size raises error."""
-        with pytest.raises(ValueError, match="chunk_overlap.*must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap.*must be less than chunk_size"
+        ):
             PDFChunker(chunk_size=100, chunk_overlap=150)
 
 
@@ -73,7 +73,7 @@ class TestPDFChunkerExtraction:
         with pytest.raises(ValueError, match="File is not a PDF"):
             chunker.chunk("", str(text_file))
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_corrupted_pdf(self, mock_reader, tmp_path):
         """Test handling of corrupted PDF."""
         chunker = PDFChunker()
@@ -86,7 +86,7 @@ class TestPDFChunkerExtraction:
         with pytest.raises(ValueError, match="Corrupted or invalid PDF file"):
             chunker.chunk("", str(pdf_file))
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_pdf_no_text(self, mock_reader, tmp_path):
         """Test handling of PDF with no extractable text."""
         chunker = PDFChunker()
@@ -103,7 +103,7 @@ class TestPDFChunkerExtraction:
         with pytest.raises(ValueError, match="PDF contains no extractable text"):
             chunker.chunk("", str(pdf_file))
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_extract_single_page(self, mock_reader, tmp_path):
         """Test extraction from single-page PDF."""
         chunker = PDFChunker()
@@ -123,7 +123,7 @@ class TestPDFChunkerExtraction:
         assert chunks[0].content == "This is page one content."
         assert chunks[0].metadata["page_number"] == 1
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_extract_multiple_pages(self, mock_reader, tmp_path):
         """Test extraction from multi-page PDF."""
         chunker = PDFChunker(chunk_size=100, chunk_overlap=20)
@@ -149,7 +149,7 @@ class TestPDFChunkerExtraction:
         for chunk in chunks:
             assert chunk.source_file == str(pdf_file)
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_extract_with_empty_pages(self, mock_reader, tmp_path):
         """Test that empty pages are skipped."""
         chunker = PDFChunker()
@@ -176,7 +176,7 @@ class TestPDFChunkerExtraction:
         assert len(chunks) >= 1
         assert all(chunk.content.strip() for chunk in chunks)
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_extract_page_extraction_error(self, mock_reader, tmp_path):
         """Test that page-level errors are logged but don't stop extraction."""
         chunker = PDFChunker()
@@ -204,7 +204,7 @@ class TestPDFChunkerExtraction:
 class TestPDFChunkerChunking:
     """Test suite for PDF chunking logic."""
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_small_single_page(self, mock_reader, tmp_path):
         """Test chunking of small single-page PDF."""
         chunker = PDFChunker(chunk_size=1000, chunk_overlap=200)
@@ -224,7 +224,7 @@ class TestPDFChunkerChunking:
         assert chunks[0].chunk_index == 0
         assert chunks[0].metadata["page_number"] == 1
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_large_single_page_splits(self, mock_reader, tmp_path):
         """Test that large single-page content splits into multiple chunks."""
         chunker = PDFChunker(chunk_size=50, chunk_overlap=10)
@@ -247,7 +247,7 @@ class TestPDFChunkerChunking:
         for chunk in chunks:
             assert chunk.metadata["page_number"] == 1
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_multiple_pages_span_chunks(self, mock_reader, tmp_path):
         """Test that chunks can span multiple pages."""
         chunker = PDFChunker(chunk_size=100, chunk_overlap=20)
@@ -267,13 +267,12 @@ class TestPDFChunkerChunking:
 
         assert len(chunks) >= 1
         # Check that we track page ranges
-        has_multi_page_chunk = any(
+        assert any(
             "page_start" in chunk.metadata or "pages" in chunk.metadata
             for chunk in chunks
-        )
-        # May or may not have multi-page chunks depending on content size
+        ), "Should have page metadata in chunks"
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_overlap_applied(self, mock_reader, tmp_path):
         """Test that chunk overlap is applied between chunks."""
         chunker = PDFChunker(chunk_size=50, chunk_overlap=15)
@@ -295,7 +294,7 @@ class TestPDFChunkerChunking:
         # Verify overlap by checking that chunks have some similar content
         # (Exact overlap checking is complex due to text processing)
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_no_overlap(self, mock_reader, tmp_path):
         """Test chunking with no overlap."""
         chunker = PDFChunker(chunk_size=30, chunk_overlap=0)
@@ -314,7 +313,7 @@ class TestPDFChunkerChunking:
 
         assert len(chunks) > 1
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_sequential_indexing(self, mock_reader, tmp_path):
         """Test that chunks have sequential zero-based indexing."""
         chunker = PDFChunker(chunk_size=50, chunk_overlap=10)
@@ -338,7 +337,7 @@ class TestPDFChunkerChunking:
 class TestPDFChunkerMetadata:
     """Test suite for PDF chunk metadata."""
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_metadata_single_page(self, mock_reader, tmp_path):
         """Test metadata for single-page chunk."""
         chunker = PDFChunker()
@@ -357,7 +356,7 @@ class TestPDFChunkerMetadata:
         assert "page_number" in chunks[0].metadata
         assert chunks[0].metadata["page_number"] == 1
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_metadata_multiple_pages_single_chunk(self, mock_reader, tmp_path):
         """Test metadata when multiple pages fit in one chunk."""
         chunker = PDFChunker(chunk_size=1000, chunk_overlap=100)
@@ -380,7 +379,7 @@ class TestPDFChunkerMetadata:
             # If combined into one chunk
             assert "page_start" in chunks[0].metadata or "pages" in chunks[0].metadata
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_metadata_page_spanning(self, mock_reader, tmp_path):
         """Test metadata for chunks spanning pages."""
         chunker = PDFChunker(chunk_size=200, chunk_overlap=50)
@@ -402,16 +401,16 @@ class TestPDFChunkerMetadata:
         # Verify all chunks have page metadata
         for chunk in chunks:
             assert (
-                "page_number" in chunk.metadata or
-                "page_start" in chunk.metadata or
-                "pages" in chunk.metadata
+                "page_number" in chunk.metadata
+                or "page_start" in chunk.metadata
+                or "pages" in chunk.metadata
             )
 
 
 class TestPDFChunkerEdgeCases:
     """Test suite for edge cases."""
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_whitespace_handling(self, mock_reader, tmp_path):
         """Test that whitespace is handled correctly."""
         chunker = PDFChunker()
@@ -430,7 +429,7 @@ class TestPDFChunkerEdgeCases:
         # Content should be stripped
         assert chunks[0].content.strip() == chunks[0].content
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_validation(self, mock_reader, tmp_path):
         """Test that all chunks pass validation."""
         chunker = PDFChunker(chunk_size=50, chunk_overlap=10)
@@ -453,7 +452,7 @@ class TestPDFChunkerEdgeCases:
             assert chunk.content.strip()
             assert chunk.chunk_index >= 0
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_chunk_source_file_preserved(self, mock_reader, tmp_path):
         """Test that source file path is preserved in all chunks."""
         chunker = PDFChunker(chunk_size=50, chunk_overlap=10)

@@ -20,11 +20,8 @@ class TestToolDefinition:
         """Test creating a tool definition."""
         schema = {
             "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "limit": {"type": "integer"}
-            },
-            "required": ["query"]
+            "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}},
+            "required": ["query"],
         }
 
         tool_def = ToolDefinition(
@@ -102,7 +99,7 @@ class TestToolRegistration:
         schema = {
             "type": "object",
             "properties": {"text": {"type": "string"}},
-            "required": ["text"]
+            "required": ["text"],
         }
 
         server.register_tool(
@@ -202,10 +199,7 @@ class TestToolRegistration:
         schema = {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query"
-                },
+                "query": {"type": "string", "description": "Search query"},
                 "filters": {
                     "type": "object",
                     "properties": {
@@ -214,18 +208,14 @@ class TestToolRegistration:
                             "type": "object",
                             "properties": {
                                 "start": {"type": "string"},
-                                "end": {"type": "string"}
-                            }
-                        }
-                    }
+                                "end": {"type": "string"},
+                            },
+                        },
+                    },
                 },
-                "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100
-                }
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
             },
-            "required": ["query"]
+            "required": ["query"],
         }
 
         server.register_tool(
@@ -292,11 +282,8 @@ class TestToolHandlers:
 
         schema = {
             "type": "object",
-            "properties": {
-                "text": {"type": "string"},
-                "model": {"type": "string"}
-            },
-            "required": ["text"]
+            "properties": {"text": {"type": "string"}, "model": {"type": "string"}},
+            "required": ["text"],
         }
 
         server.register_tool(
@@ -452,7 +439,7 @@ class TestIntegration:
         schema = {
             "type": "object",
             "properties": {"query": {"type": "string"}},
-            "required": ["query"]
+            "required": ["query"],
         }
         server.register_tool(
             name="search",
@@ -483,8 +470,16 @@ class TestIntegration:
 
         # Register multiple tools
         tools_config = [
-            ("embed", "Generate embeddings", {"properties": {"text": {"type": "string"}}}),
-            ("search", "Search documents", {"properties": {"query": {"type": "string"}}}),
+            (
+                "embed",
+                "Generate embeddings",
+                {"properties": {"text": {"type": "string"}}},
+            ),
+            (
+                "search",
+                "Search documents",
+                {"properties": {"query": {"type": "string"}}},
+            ),
             ("index", "Index documents", {"properties": {"path": {"type": "string"}}}),
         ]
 

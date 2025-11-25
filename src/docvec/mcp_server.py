@@ -16,8 +16,7 @@ from mcp.server.fastmcp import FastMCP
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -31,6 +30,7 @@ class ToolDefinition:
         description: Human-readable description of what the tool does
         input_schema: JSON schema defining expected input parameters
     """
+
     name: str
     description: str
     input_schema: dict[str, Any]
@@ -176,8 +176,7 @@ class MCPServer:
         """
         if tool_name not in self._tools:
             raise ValueError(
-                f"Tool '{tool_name}' not registered. "
-                f"Call register_tool() first."
+                f"Tool '{tool_name}' not registered. " f"Call register_tool() first."
             )
 
         if not callable(handler):
@@ -186,7 +185,6 @@ class MCPServer:
         self._handlers[tool_name] = handler
 
         # Register handler with FastMCP using decorator pattern
-        tool_def = self._tools[tool_name]
         self._app.tool(name=tool_name)(handler)
 
         logger.info(f"Added handler for tool: {tool_name}")

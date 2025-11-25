@@ -1,8 +1,7 @@
 """Tests for document indexer."""
 
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -16,6 +15,7 @@ from docvec.storage.chroma_store import StorageError
 def mock_embedder():
     """Provide mock OllamaClient."""
     embedder = Mock()
+
     # Make embed_batch return embeddings matching the input count
     def embed_batch_side_effect(texts, batch_size=32):
         return [[0.1, 0.2, 0.3] for _ in range(len(texts))]
@@ -28,6 +28,7 @@ def mock_embedder():
 def mock_storage():
     """Provide mock ChromaStore."""
     storage = Mock()
+
     # Make storage.add return IDs matching the input count
     def add_side_effect(embeddings, documents, metadatas):
         return [f"id{i}" for i in range(len(documents))]
@@ -91,7 +92,6 @@ Content for section 2.
 def temp_pdf_file(tmp_path):
     """Create temporary PDF file with mock content."""
     from pypdf import PdfWriter
-    from io import BytesIO
 
     file_path = tmp_path / "test.pdf"
 
@@ -132,21 +132,15 @@ class TestIndexerInitialization:
     def test_init_invalid_chunk_size(self, mock_embedder, mock_storage):
         """Test that invalid chunk_size raises error."""
         with pytest.raises(ValueError, match="chunk_size must be positive"):
-            Indexer(
-                embedder=mock_embedder, storage=mock_storage, chunk_size=0
-            )
+            Indexer(embedder=mock_embedder, storage=mock_storage, chunk_size=0)
 
         with pytest.raises(ValueError, match="chunk_size must be positive"):
-            Indexer(
-                embedder=mock_embedder, storage=mock_storage, chunk_size=-10
-            )
+            Indexer(embedder=mock_embedder, storage=mock_storage, chunk_size=-10)
 
     def test_init_invalid_batch_size(self, mock_embedder, mock_storage):
         """Test that invalid batch_size raises error."""
         with pytest.raises(ValueError, match="batch_size must be positive"):
-            Indexer(
-                embedder=mock_embedder, storage=mock_storage, batch_size=0
-            )
+            Indexer(embedder=mock_embedder, storage=mock_storage, batch_size=0)
 
     def test_chunker_map_initialized(self, indexer):
         """Test that chunker map is properly initialized."""
@@ -505,7 +499,7 @@ class TestIndexerDocumentIndexing:
         indexer.embedder.embed_batch.assert_called_once()
         indexer.storage.add.assert_called_once()
 
-    @patch('docvec.chunking.pdf_chunker.PdfReader')
+    @patch("docvec.chunking.pdf_chunker.PdfReader")
     def test_index_document_pdf_file(self, mock_pdf_reader, indexer, temp_pdf_file):
         """Test indexing a PDF file."""
         # Mock PDF reader to return text content
@@ -530,7 +524,9 @@ class TestIndexerDocumentIndexing:
         with pytest.raises(IndexingError, match="not a file"):
             indexer.index_document(tmp_path)
 
-    def test_index_document_embedding_error(self, indexer, temp_txt_file, mock_embedder):
+    def test_index_document_embedding_error(
+        self, indexer, temp_txt_file, mock_embedder
+    ):
         """Test that embedding errors are wrapped in IndexingError."""
         mock_embedder.embed_batch.side_effect = EmbeddingError("Failed")
 
@@ -608,7 +604,9 @@ class TestIndexerBatchIndexing:
 class TestIndexerIntegration:
     """Integration tests with real chunkers."""
 
-    def test_integration_text_file_full_pipeline(self, mock_embedder, mock_storage, tmp_path):
+    def test_integration_text_file_full_pipeline(
+        self, mock_embedder, mock_storage, tmp_path
+    ):
         """Test full pipeline with real TextChunker."""
         indexer = Indexer(
             embedder=mock_embedder,
@@ -628,9 +626,7 @@ Second main paragraph. This builds on the previous section.
 Conclusion paragraph wrapping up."""
         file_path.write_text(content)
 
-        mock_embedder.embed_batch.return_value = [
-            [0.1, 0.2] * 100 for _ in range(4)
-        ]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2] * 100 for _ in range(4)]
         mock_storage.add.return_value = ["id1", "id2", "id3", "id4"]
 
         chunk_ids = indexer.index_document(file_path)
@@ -640,7 +636,9 @@ Conclusion paragraph wrapping up."""
         mock_embedder.embed_batch.assert_called_once()
         mock_storage.add.assert_called_once()
 
-    def test_integration_python_file_full_pipeline(self, mock_embedder, mock_storage, tmp_path):
+    def test_integration_python_file_full_pipeline(
+        self, mock_embedder, mock_storage, tmp_path
+    ):
         """Test full pipeline with real CodeChunker."""
         indexer = Indexer(
             embedder=mock_embedder,
@@ -667,9 +665,7 @@ class MyClass:
 '''
         file_path.write_text(content)
 
-        mock_embedder.embed_batch.return_value = [
-            [0.1, 0.2] * 100 for _ in range(4)
-        ]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2] * 100 for _ in range(4)]
         mock_storage.add.return_value = ["id1", "id2", "id3", "id4"]
 
         chunk_ids = indexer.index_document(file_path)

@@ -93,7 +93,9 @@ def calculate_similarity(text1: str, text2: str) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def batch_process(items: List[str], processor: Optional[DataProcessor] = None) -> List[str]:
+def batch_process(
+    items: List[str], processor: Optional[DataProcessor] = None
+) -> List[str]:
     """Process a batch of items.
 
     Args:

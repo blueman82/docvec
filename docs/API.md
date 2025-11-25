@@ -4,13 +4,22 @@ This document provides detailed specifications for all MCP tools exposed by the 
 
 ## Overview
 
-The server exposes five primary tools for document indexing and semantic search:
+The server exposes nine tools for document indexing, semantic search, and collection management:
 
+**Indexing Tools**
 1. `index_file` - Index a single document
 2. `index_directory` - Batch index multiple documents
+
+**Search Tools**
 3. `search` - Basic semantic search
 4. `search_with_filters` - Search with metadata filtering
 5. `search_with_budget` - Token-budget aware search
+
+**Management Tools**
+6. `delete_chunks` - Delete specific chunks by ID
+7. `delete_file` - Delete all chunks from a source file
+8. `clear_index` - Clear entire collection (requires confirmation)
+9. `get_index_stats` - Get collection statistics
 
 ## Tool: index_file
 
@@ -545,6 +554,400 @@ The `truncated` field indicates if some results were excluded to stay within bud
 
 ---
 
+## Tool: delete_chunks
+
+Delete specific chunks by their IDs. Useful for removing individual chunks that are outdated or incorrect.
+
+### Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of chunk IDs to delete"
+    }
+  },
+  "required": ["ids"]
+}
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `ids` | array[string] | Yes | List of chunk IDs to delete |
+
+### Response Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether deletion succeeded"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "deleted_count": {
+          "type": "integer",
+          "description": "Number of chunks deleted"
+        },
+        "deleted_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of deleted chunk IDs"
+        }
+      }
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if success is false"
+    }
+  }
+}
+```
+
+### Example Usage
+
+Request:
+```json
+{
+  "ids": ["1732360800_0", "1732360800_1", "1732360800_2"]
+}
+```
+
+Response (success):
+```json
+{
+  "success": true,
+  "data": {
+    "deleted_count": 3,
+    "deleted_ids": ["1732360800_0", "1732360800_1", "1732360800_2"]
+  },
+  "error": null
+}
+```
+
+Response (empty list):
+```json
+{
+  "success": true,
+  "data": {
+    "deleted_count": 0,
+    "deleted_ids": []
+  },
+  "error": null
+}
+```
+
+### Error Cases
+
+| Error Message | Cause | Solution |
+|--------------|-------|----------|
+| `ids must be a list` | ids parameter is null | Provide a valid list |
+| `Failed to delete by IDs: {error}` | Storage operation failed | Check database state |
+
+---
+
+## Tool: delete_file
+
+Delete all chunks associated with a specific source file. Useful when removing an entire document from the index.
+
+### Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source_file": {
+      "type": "string",
+      "description": "Source file path to delete chunks for"
+    }
+  },
+  "required": ["source_file"]
+}
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_file` | string | Yes | Path of source file to remove from index |
+
+### Response Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether deletion succeeded"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "deleted_count": {
+          "type": "integer",
+          "description": "Number of chunks deleted"
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Source file that was deleted"
+        }
+      }
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if success is false"
+    }
+  }
+}
+```
+
+### Example Usage
+
+Request:
+```json
+{
+  "source_file": "/Users/harrison/docs/outdated.md"
+}
+```
+
+Response (success):
+```json
+{
+  "success": true,
+  "data": {
+    "deleted_count": 15,
+    "source_file": "/Users/harrison/docs/outdated.md"
+  },
+  "error": null
+}
+```
+
+Response (file not indexed):
+```json
+{
+  "success": true,
+  "data": {
+    "deleted_count": 0,
+    "source_file": "/Users/harrison/docs/not_indexed.md"
+  },
+  "error": null
+}
+```
+
+### Error Cases
+
+| Error Message | Cause | Solution |
+|--------------|-------|----------|
+| `source_file cannot be empty` | Empty or whitespace-only path | Provide valid file path |
+| `Failed to delete by file: {error}` | Storage operation failed | Check database state |
+
+---
+
+## Tool: clear_index
+
+Delete all documents from the collection. **Requires explicit confirmation to prevent accidental data loss.**
+
+### Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "confirm": {
+      "type": "boolean",
+      "description": "Safety gate - must be true to proceed"
+    }
+  },
+  "required": ["confirm"]
+}
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `confirm` | boolean | Yes | Must be `true` to proceed with deletion |
+
+### Response Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether clearing succeeded"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "deleted_count": {
+          "type": "integer",
+          "description": "Total number of chunks deleted"
+        }
+      }
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if success is false"
+    }
+  }
+}
+```
+
+### Example Usage
+
+Request (confirmed):
+```json
+{
+  "confirm": true
+}
+```
+
+Response (success):
+```json
+{
+  "success": true,
+  "data": {
+    "deleted_count": 1523
+  },
+  "error": null
+}
+```
+
+Request (not confirmed):
+```json
+{
+  "confirm": false
+}
+```
+
+Response (safety gate):
+```json
+{
+  "success": false,
+  "data": null,
+  "error": "Safety check: Set confirm=True to delete all documents"
+}
+```
+
+### Safety Considerations
+
+- **Always returns error if `confirm` is not explicitly `true`**
+- This is an irreversible operation - all indexed documents will be deleted
+- Consider using `get_index_stats` first to review what will be deleted
+- Back up the ChromaDB directory before clearing if data recovery may be needed
+
+---
+
+## Tool: get_index_stats
+
+Retrieve statistics about the current collection, including total chunks and indexed files.
+
+### Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+### Parameters
+
+This tool takes no parameters.
+
+### Response Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether stats retrieval succeeded"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "total_chunks": {
+          "type": "integer",
+          "description": "Total number of chunks in collection"
+        },
+        "unique_files": {
+          "type": "integer",
+          "description": "Number of unique source files"
+        },
+        "source_files": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of indexed source file paths"
+        }
+      }
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if success is false"
+    }
+  }
+}
+```
+
+### Example Usage
+
+Request:
+```json
+{}
+```
+
+Response (success):
+```json
+{
+  "success": true,
+  "data": {
+    "total_chunks": 487,
+    "unique_files": 23,
+    "source_files": [
+      "/Users/harrison/docs/README.md",
+      "/Users/harrison/docs/API.md",
+      "/Users/harrison/docs/ARCHITECTURE.md"
+    ]
+  },
+  "error": null
+}
+```
+
+Response (empty collection):
+```json
+{
+  "success": true,
+  "data": {
+    "total_chunks": 0,
+    "unique_files": 0,
+    "source_files": []
+  },
+  "error": null
+}
+```
+
+### Use Cases
+
+- **Before clearing index**: Review what documents are indexed
+- **Monitoring**: Track collection growth over time
+- **Debugging**: Verify files were indexed correctly
+- **Maintenance**: Identify which files need re-indexing
+
+---
+
 ## Error Handling
 
 All tools return a consistent error response format:
@@ -572,6 +975,8 @@ All tools return a consistent error response format:
 | `INVALID_INPUT` | Invalid parameter values | Check parameter types and ranges |
 | `QUERY_FAILED` | Search operation failed | Check database integrity |
 | `BUDGET_EXCEEDED` | Token budget too small | Increase max_tokens |
+| `DELETE_FAILED` | Delete operation failed | Check database state |
+| `CONFIRMATION_REQUIRED` | clear_index called without confirm=True | Set confirm=True to proceed |
 
 ---
 
@@ -626,7 +1031,10 @@ Typical query latency:
 
 ### Maintenance
 
-1. **Periodically clean database** - remove outdated documents
-2. **Monitor query performance** - large databases may need optimization
-3. **Update embeddings** - if embedding model changes, re-index
-4. **Backup ChromaDB** - copy database directory regularly
+1. **Use `get_index_stats`** - monitor collection size and indexed files
+2. **Use `delete_file`** - remove outdated or updated documents before re-indexing
+3. **Use `delete_chunks`** - surgically remove specific chunks when needed
+4. **Use `clear_index`** - reset collection when starting fresh (requires `confirm=true`)
+5. **Monitor query performance** - large databases may need optimization
+6. **Update embeddings** - if embedding model changes, re-index
+7. **Backup ChromaDB** - copy database directory before using `clear_index`

@@ -14,16 +14,19 @@ class CodeChunker(AbstractChunker):
 
     Uses Python's ast module to parse code structure and chunk by semantic
     units (functions, classes, methods). Falls back to line-based chunking
-    for unparseable code.
+    for unparseable code. Oversized chunks are split using the base class
+    utility, with classes attempting method-level splitting first.
     """
 
-    def __init__(self, chunk_size: int = 100):
+    def __init__(self, chunk_size: int = 100, max_tokens: int = 512):
         """Initialize code chunker.
 
         Args:
             chunk_size: Maximum number of lines per chunk for fallback chunking
+            max_tokens: Maximum tokens per chunk (default 512 for mxbai-embed-large)
         """
         self.chunk_size = chunk_size
+        self.max_tokens = max_tokens
 
     def chunk(self, content: str, source_file: str) -> list[Chunk]:
         """Split Python code into semantic chunks.
@@ -85,7 +88,7 @@ class CodeChunker(AbstractChunker):
             where definition_type is 'function', 'class', or 'async_function'
             and class_name is set for class definitions
         """
-        definitions = []
+        definitions: list[tuple[str, int, int, str | None]] = []
 
         for node in ast_module.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -156,16 +159,19 @@ class CodeChunker(AbstractChunker):
                 imports.extend(import_lines)
             elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
                 # Module docstring
-                if node.lineno == 1 or (
-                    node.lineno == 2 and lines[0].startswith("#")
-                ):
+                if node.lineno == 1 or (node.lineno == 2 and lines[0].startswith("#")):
                     module_docstring = node.value.value
 
         # Create first chunk with imports and module docstring if present
         if imports or module_docstring:
             import_content_parts = []
             if module_docstring:
-                import_content_parts.append(f'"""{module_docstring}"""')
+                docstring_str = (
+                    module_docstring.decode()
+                    if isinstance(module_docstring, bytes)
+                    else str(module_docstring)
+                )
+                import_content_parts.append(f'"""{docstring_str}"""')
             if imports:
                 import_content_parts.extend(imports)
 
@@ -195,15 +201,32 @@ class CodeChunker(AbstractChunker):
                 if class_name:
                     metadata["class_name"] = class_name
 
-                chunks.append(
-                    Chunk(
-                        content=definition_content,
-                        source_file=source_file,
-                        chunk_index=chunk_index,
-                        metadata=metadata,
-                    )
+                chunk = Chunk(
+                    content=definition_content,
+                    source_file=source_file,
+                    chunk_index=chunk_index,
+                    metadata=metadata,
                 )
-                chunk_index += 1
+
+                # Check if chunk exceeds max_tokens and needs splitting
+                max_chars = self.max_tokens * 4
+                if len(definition_content) > max_chars:
+                    # For classes, try method-level splitting first
+                    if def_type == "class" and class_name:
+                        split_chunks = self._split_class_by_methods(
+                            chunk, class_name, chunk_index
+                        )
+                    else:
+                        # For functions/other, use base class line-based splitting
+                        split_chunks = self.split_oversized_chunk(
+                            chunk, self.max_tokens, chunk_index
+                        )
+
+                    chunks.extend(split_chunks)
+                    chunk_index += len(split_chunks)
+                else:
+                    chunks.append(chunk)
+                    chunk_index += 1
 
         # If no chunks were created (empty file or only comments), create one chunk
         if not chunks:
@@ -217,6 +240,152 @@ class CodeChunker(AbstractChunker):
             )
 
         return chunks
+
+    def _split_class_by_methods(
+        self, chunk: Chunk, class_name: str, base_index: int
+    ) -> list[Chunk]:
+        """Split an oversized class chunk by its methods.
+
+        Attempts to parse the class body and split by method boundaries.
+        Falls back to base class line-based splitting if method extraction fails.
+
+        Args:
+            chunk: The class chunk to split
+            class_name: Name of the class
+            base_index: Starting index for resulting chunks
+
+        Returns:
+            List of chunks from the split class
+        """
+        content = chunk.content
+        max_chars = self.max_tokens * 4
+
+        # Try to parse the class body to extract methods
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            # If parsing fails, fall back to base class splitting
+            return self.split_oversized_chunk(chunk, self.max_tokens, base_index)
+
+        if not tree.body or not isinstance(tree.body[0], ast.ClassDef):
+            return self.split_oversized_chunk(chunk, self.max_tokens, base_index)
+
+        class_node = tree.body[0]
+        lines = content.splitlines(keepends=False)
+
+        # Extract class header (class definition line + docstring if present)
+        class_header_end = class_node.lineno
+        first_method_line = None
+
+        for node in class_node.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                start_line = node.lineno
+                if hasattr(node, "decorator_list") and node.decorator_list:
+                    first_decorator = node.decorator_list[0]
+                    if hasattr(first_decorator, "lineno"):
+                        start_line = first_decorator.lineno
+                if first_method_line is None or start_line < first_method_line:
+                    first_method_line = start_line
+
+        # If we have methods, the header ends just before the first method
+        if first_method_line:
+            class_header_end = first_method_line - 1
+
+        # Extract methods with their line ranges
+        method_chunks: list[tuple[str, int, int]] = []
+        for node in class_node.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                start_line = node.lineno
+                end_line = node.end_lineno if hasattr(node, "end_lineno") else node.lineno
+
+                # Include decorators
+                if hasattr(node, "decorator_list") and node.decorator_list:
+                    first_decorator = node.decorator_list[0]
+                    if hasattr(first_decorator, "lineno"):
+                        start_line = first_decorator.lineno
+
+                method_content = "\n".join(lines[start_line - 1 : end_line])
+                method_chunks.append((method_content, start_line, end_line))
+
+        # If no methods found or only one method, use base class splitting
+        if len(method_chunks) <= 1:
+            return self.split_oversized_chunk(chunk, self.max_tokens, base_index)
+
+        # Build result chunks by grouping methods that fit together
+        result_chunks: list[Chunk] = []
+        current_text = ""
+        part_index = 0
+
+        # Include class header in first chunk
+        header_lines = lines[: class_header_end]
+        header_content = "\n".join(header_lines).strip()
+        if header_content:
+            current_text = header_content
+
+        for method_content, _, _ in method_chunks:
+            method_content = method_content.strip()
+            if not method_content:
+                continue
+
+            # Check if adding this method would exceed the limit
+            if current_text:
+                combined = current_text + "\n\n" + method_content
+            else:
+                combined = method_content
+
+            if len(combined) <= max_chars:
+                current_text = combined
+            else:
+                # Flush current text if we have any
+                if current_text:
+                    new_metadata = dict(chunk.metadata)
+                    new_metadata["split_part"] = part_index
+                    result_chunks.append(
+                        Chunk(
+                            content=current_text,
+                            source_file=chunk.source_file,
+                            chunk_index=base_index + part_index,
+                            metadata=new_metadata,
+                        )
+                    )
+                    part_index += 1
+
+                # Handle the method that didn't fit
+                if len(method_content) <= max_chars:
+                    current_text = method_content
+                else:
+                    # Method itself is too large, use base class splitting
+                    temp_chunk = Chunk(
+                        content=method_content,
+                        source_file=chunk.source_file,
+                        chunk_index=0,
+                        metadata=dict(chunk.metadata),
+                    )
+                    method_splits = self.split_oversized_chunk(
+                        temp_chunk, self.max_tokens, base_index + part_index
+                    )
+                    result_chunks.extend(method_splits)
+                    part_index += len(method_splits)
+                    current_text = ""
+
+        # Flush remaining text
+        if current_text:
+            new_metadata = dict(chunk.metadata)
+            new_metadata["split_part"] = part_index
+            result_chunks.append(
+                Chunk(
+                    content=current_text,
+                    source_file=chunk.source_file,
+                    chunk_index=base_index + part_index,
+                    metadata=new_metadata,
+                )
+            )
+
+        # If method-based splitting produced no better result, fall back
+        if not result_chunks:
+            return self.split_oversized_chunk(chunk, self.max_tokens, base_index)
+
+        return result_chunks
 
     def _fallback_line_chunking(self, content: str, source_file: str) -> list[Chunk]:
         """Fall back to simple line-based chunking.

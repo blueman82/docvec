@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from docvec.indexing.batch_processor import BatchProcessor, BatchResult
+from docvec.indexing.batch_processor import BatchProcessor
 from docvec.indexing.indexer import Indexer, IndexingError
 
 logger = logging.getLogger(__name__)
@@ -24,10 +24,10 @@ INDEX_FILE_SCHEMA = {
     "properties": {
         "file_path": {
             "type": "string",
-            "description": "Absolute or relative path to the file to index"
+            "description": "Absolute or relative path to the file to index",
         }
     },
-    "required": ["file_path"]
+    "required": ["file_path"],
 }
 
 INDEX_DIRECTORY_SCHEMA = {
@@ -35,15 +35,15 @@ INDEX_DIRECTORY_SCHEMA = {
     "properties": {
         "dir_path": {
             "type": "string",
-            "description": "Absolute or relative path to the directory to index"
+            "description": "Absolute or relative path to the directory to index",
         },
         "recursive": {
             "type": "boolean",
             "description": "Whether to recursively index subdirectories (default: true)",
-            "default": True
-        }
+            "default": True,
+        },
     },
-    "required": ["dir_path"]
+    "required": ["dir_path"],
 }
 
 
@@ -114,8 +114,7 @@ class IndexingTools:
             # Verify it's a file
             if not path.is_file():
                 return self._format_error(
-                    operation="index_file",
-                    error=f"Path is not a file: {file_path}"
+                    operation="index_file", error=f"Path is not a file: {file_path}"
                 )
 
             # Index the file
@@ -128,24 +127,21 @@ class IndexingTools:
                     "file": str(path),
                     "chunks": len(chunk_ids),
                     "chunk_ids": chunk_ids,
-                }
+                },
             )
 
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             return self._format_error(
-                operation="index_file",
-                error=f"File not found: {file_path}"
+                operation="index_file", error=f"File not found: {file_path}"
             )
         except IndexingError as e:
             return self._format_error(
-                operation="index_file",
-                error=f"Indexing failed: {str(e)}"
+                operation="index_file", error=f"Indexing failed: {str(e)}"
             )
         except Exception as e:
             logger.exception(f"Unexpected error in index_file: {e}")
             return self._format_error(
-                operation="index_file",
-                error=f"Unexpected error: {str(e)}"
+                operation="index_file", error=f"Unexpected error: {str(e)}"
             )
 
     async def index_directory(
@@ -184,7 +180,9 @@ class IndexingTools:
             >>> result['data']['new_documents']
             15
         """
-        logger.info(f"MCP tool invoked: index_directory({dir_path}, recursive={recursive})")
+        logger.info(
+            f"MCP tool invoked: index_directory({dir_path}, recursive={recursive})"
+        )
 
         try:
             # Validate and resolve path
@@ -194,7 +192,7 @@ class IndexingTools:
             if not path.is_dir():
                 return self._format_error(
                     operation="index_directory",
-                    error=f"Path is not a directory: {dir_path}"
+                    error=f"Path is not a directory: {dir_path}",
                 )
 
             # Process directory using batch processor
@@ -205,8 +203,7 @@ class IndexingTools:
 
             # Format errors for response
             formatted_errors = [
-                {"file": file, "error": error}
-                for file, error in result.errors
+                {"file": file, "error": error} for file, error in result.errors
             ]
 
             # Format success response
@@ -220,24 +217,22 @@ class IndexingTools:
                     "total_chunks": total_chunks,
                     "errors": formatted_errors,
                     "indexed_files": list(result.chunk_ids.keys()),
-                }
+                },
             )
 
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             return self._format_error(
-                operation="index_directory",
-                error=f"Directory not found: {dir_path}"
+                operation="index_directory", error=f"Directory not found: {dir_path}"
             )
-        except NotADirectoryError as e:
+        except NotADirectoryError:
             return self._format_error(
                 operation="index_directory",
-                error=f"Path is not a directory: {dir_path}"
+                error=f"Path is not a directory: {dir_path}",
             )
         except Exception as e:
             logger.exception(f"Unexpected error in index_directory: {e}")
             return self._format_error(
-                operation="index_directory",
-                error=f"Unexpected error: {str(e)}"
+                operation="index_directory", error=f"Unexpected error: {str(e)}"
             )
 
     def _validate_path(self, path_str: str) -> Path:
@@ -278,10 +273,7 @@ class IndexingTools:
         Returns:
             Structured success response
         """
-        return {
-            "success": True,
-            "data": data
-        }
+        return {"success": True, "data": data}
 
     def _format_error(self, operation: str, error: str) -> dict[str, Any]:
         """Format error response.
@@ -293,7 +285,4 @@ class IndexingTools:
         Returns:
             Structured error response
         """
-        return {
-            "success": False,
-            "error": error
-        }
+        return {"success": False, "error": error}

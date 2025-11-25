@@ -44,12 +44,16 @@ class TestTextChunkerInit:
 
     def test_chunk_overlap_exceeds_chunk_size(self):
         """Test that overlap >= chunk_size raises error."""
-        with pytest.raises(ValueError, match="chunk_overlap .* must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap .* must be less than chunk_size"
+        ):
             TextChunker(chunk_size=100, chunk_overlap=100)
 
     def test_chunk_overlap_greater_than_chunk_size(self):
         """Test that overlap > chunk_size raises error."""
-        with pytest.raises(ValueError, match="chunk_overlap .* must be less than chunk_size"):
+        with pytest.raises(
+            ValueError, match="chunk_overlap .* must be less than chunk_size"
+        ):
             TextChunker(chunk_size=100, chunk_overlap=150)
 
 
@@ -139,7 +143,7 @@ class TestTextChunkerSentenceSplitting:
         assert len(chunks) > 1
         # Each chunk should contain complete sentences
         for chunk in chunks:
-            assert chunk.content.strip().endswith(('.', '!', '?'))
+            assert chunk.content.strip().endswith((".", "!", "?"))
 
     def test_sentence_splitting_regex(self):
         """Test sentence splitting with various punctuation."""
@@ -150,7 +154,7 @@ class TestTextChunkerSentenceSplitting:
 
         assert len(chunks) >= 2
         # Verify sentences are properly split
-        all_content = ' '.join(chunk.content for chunk in chunks)
+        all_content = " ".join(chunk.content for chunk in chunks)
         assert "First sentence" in all_content
         assert "Second sentence" in all_content
 
@@ -285,7 +289,10 @@ class TestTextChunkerEdgeCases:
         """Test handling of a single very long sentence."""
         chunker = TextChunker(chunk_size=100, chunk_overlap=0)
         # Single sentence longer than chunk_size
-        content = "This is a very long sentence without any punctuation that goes on and on and on " * 3
+        content = (
+            "This is a very long sentence without any punctuation that goes on and on and on "
+            * 3
+        )
 
         chunks = chunker.chunk(content, "/test/file.txt")
 
@@ -310,7 +317,7 @@ class TestTextChunkerEdgeCases:
 
         assert len(chunks) >= 1
         # Verify all content is preserved
-        all_content = ' '.join(chunk.content for chunk in chunks)
+        all_content = " ".join(chunk.content for chunk in chunks)
         assert "Statement" in all_content
         assert "Question" in all_content
         assert "Exclamation" in all_content
@@ -374,8 +381,8 @@ Conclusion paragraph. This wraps up the discussion. It summarizes key points."""
         assert isinstance(chunker, AbstractChunker)
 
         # Verify interface methods exist
-        assert hasattr(chunker, 'chunk')
-        assert hasattr(chunker, 'validate_chunk_quality')
+        assert hasattr(chunker, "chunk")
+        assert hasattr(chunker, "validate_chunk_quality")
 
     def test_validate_chunk_quality(self):
         """Test that validate_chunk_quality works with text chunks."""

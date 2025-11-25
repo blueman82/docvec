@@ -9,7 +9,7 @@ This module provides an HTTP client for the Ollama embeddings API with:
 
 import time
 from functools import wraps
-from typing import Callable, Optional
+from typing import Callable
 
 import requests
 
@@ -45,7 +45,7 @@ def retry_with_backoff(
             for attempt in range(max_retries):
                 try:
                     return func(*args, **kwargs)
-                except (requests.RequestException, EmbeddingError) as e:
+                except (requests.RequestException, EmbeddingError):
                     if attempt == max_retries - 1:
                         raise
 
@@ -125,7 +125,9 @@ class OllamaClient:
 
             # Verify model exists in available models
             models_data = response.json()
-            available_models = [m.get("name", "") for m in models_data.get("models", [])]
+            available_models = [
+                m.get("name", "") for m in models_data.get("models", [])
+            ]
 
             # Check if our model is in the list
             model_available = any(
@@ -138,7 +140,7 @@ class OllamaClient:
                     test_response = self._request_with_retry(
                         {"model": self.model, "prompt": "test"}
                     )
-                    return test_response.status_code == 200
+                    return bool(test_response.status_code == 200)
                 except Exception:
                     return False
 
@@ -210,16 +212,14 @@ class OllamaClient:
             if not embedding:
                 raise EmbeddingError("No embedding returned from Ollama API")
 
-            return embedding
+            return list(embedding) if embedding else []
 
         except EmbeddingError:
             raise
         except Exception as e:
             raise EmbeddingError(f"Failed to generate embedding: {e}") from e
 
-    def embed_batch(
-        self, texts: list[str], batch_size: int = 32
-    ) -> list[list[float]]:
+    def embed_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
         """Generate embeddings for multiple texts in batches.
 
         Processes texts in batches to reduce API calls and improve performance.

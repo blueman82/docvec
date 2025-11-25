@@ -43,7 +43,7 @@ def mock_batch_processor():
         chunk_ids={
             "/path/file1.txt": ["c1", "c2"],
             "/path/file2.md": ["c3", "c4", "c5"],
-        }
+        },
     )
     processor.process_directory.return_value = result
 
@@ -53,10 +53,7 @@ def mock_batch_processor():
 @pytest.fixture
 def indexing_tools(mock_batch_processor, mock_indexer):
     """Provide IndexingTools instance with mocks."""
-    return IndexingTools(
-        batch_processor=mock_batch_processor,
-        indexer=mock_indexer
-    )
+    return IndexingTools(batch_processor=mock_batch_processor, indexer=mock_indexer)
 
 
 @pytest.fixture
@@ -107,8 +104,7 @@ class TestIndexingToolsInitialization:
     def test_init_with_dependencies(self, mock_batch_processor, mock_indexer):
         """Test initialization with batch processor and indexer."""
         tools = IndexingTools(
-            batch_processor=mock_batch_processor,
-            indexer=mock_indexer
+            batch_processor=mock_batch_processor, indexer=mock_indexer
         )
 
         assert tools.batch_processor == mock_batch_processor
@@ -131,10 +127,13 @@ class TestPathValidation:
         assert path.exists()
         assert path.is_absolute()
 
-    def test_validate_path_with_relative_path(self, indexing_tools, temp_test_file, tmp_path):
+    def test_validate_path_with_relative_path(
+        self, indexing_tools, temp_test_file, tmp_path
+    ):
         """Test validating relative path."""
         # Change to temp directory and use relative path
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -178,7 +177,9 @@ class TestIndexFileTool:
     """Test index_file tool handler."""
 
     @pytest.mark.asyncio
-    async def test_index_file_success(self, indexing_tools, temp_test_file, mock_indexer):
+    async def test_index_file_success(
+        self, indexing_tools, temp_test_file, mock_indexer
+    ):
         """Test successful file indexing."""
         result = await indexing_tools.index_file(str(temp_test_file))
 
@@ -191,9 +192,12 @@ class TestIndexFileTool:
         mock_indexer.index_document.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_index_file_relative_path(self, indexing_tools, temp_test_file, tmp_path, mock_indexer):
+    async def test_index_file_relative_path(
+        self, indexing_tools, temp_test_file, tmp_path, mock_indexer
+    ):
         """Test indexing file with relative path."""
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -225,7 +229,9 @@ class TestIndexFileTool:
         assert "not a file" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_index_file_indexing_error(self, indexing_tools, temp_test_file, mock_indexer):
+    async def test_index_file_indexing_error(
+        self, indexing_tools, temp_test_file, mock_indexer
+    ):
         """Test handling IndexingError from indexer."""
         mock_indexer.index_document.side_effect = IndexingError("Failed to index")
 
@@ -244,7 +250,9 @@ class TestIndexFileTool:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_index_file_no_chunks_generated(self, indexing_tools, temp_test_file, mock_indexer):
+    async def test_index_file_no_chunks_generated(
+        self, indexing_tools, temp_test_file, mock_indexer
+    ):
         """Test indexing file that generates no chunks."""
         mock_indexer.index_document.return_value = []
 
@@ -255,7 +263,9 @@ class TestIndexFileTool:
         assert result["data"]["chunk_ids"] == []
 
     @pytest.mark.asyncio
-    async def test_index_file_unexpected_error(self, indexing_tools, temp_test_file, mock_indexer):
+    async def test_index_file_unexpected_error(
+        self, indexing_tools, temp_test_file, mock_indexer
+    ):
         """Test handling unexpected exception."""
         mock_indexer.index_document.side_effect = RuntimeError("Unexpected error")
 
@@ -270,9 +280,13 @@ class TestIndexDirectoryTool:
     """Test index_directory tool handler."""
 
     @pytest.mark.asyncio
-    async def test_index_directory_success(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_success(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test successful directory indexing."""
-        result = await indexing_tools.index_directory(str(temp_test_dir), recursive=True)
+        result = await indexing_tools.index_directory(
+            str(temp_test_dir), recursive=True
+        )
 
         assert result["success"] is True
         assert "data" in result
@@ -287,9 +301,13 @@ class TestIndexDirectoryTool:
         )
 
     @pytest.mark.asyncio
-    async def test_index_directory_non_recursive(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_non_recursive(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test non-recursive directory indexing."""
-        result = await indexing_tools.index_directory(str(temp_test_dir), recursive=False)
+        result = await indexing_tools.index_directory(
+            str(temp_test_dir), recursive=False
+        )
 
         assert result["success"] is True
         assert result["data"]["recursive"] is False
@@ -299,7 +317,9 @@ class TestIndexDirectoryTool:
         )
 
     @pytest.mark.asyncio
-    async def test_index_directory_default_recursive(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_default_recursive(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test that recursive defaults to True."""
         result = await indexing_tools.index_directory(str(temp_test_dir))
 
@@ -311,19 +331,21 @@ class TestIndexDirectoryTool:
         )
 
     @pytest.mark.asyncio
-    async def test_index_directory_with_errors(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_with_errors(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test directory indexing with some file errors."""
         result_with_errors = BatchResult(
             new_documents=3,
             duplicates_skipped=1,
             errors=[
                 ("/path/bad1.txt", "Failed to read"),
-                ("/path/bad2.md", "Invalid format")
+                ("/path/bad2.md", "Invalid format"),
             ],
             chunk_ids={
                 "/path/good1.txt": ["c1", "c2"],
                 "/path/good2.py": ["c3"],
-            }
+            },
         )
         mock_batch_processor.process_directory.return_value = result_with_errors
 
@@ -345,7 +367,9 @@ class TestIndexDirectoryTool:
         assert "not found" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_index_directory_file_instead_of_directory(self, indexing_tools, temp_test_file):
+    async def test_index_directory_file_instead_of_directory(
+        self, indexing_tools, temp_test_file
+    ):
         """Test indexing file path instead of directory."""
         result = await indexing_tools.index_directory(str(temp_test_file))
 
@@ -354,16 +378,15 @@ class TestIndexDirectoryTool:
         assert "not a directory" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_index_directory_empty_directory(self, indexing_tools, tmp_path, mock_batch_processor):
+    async def test_index_directory_empty_directory(
+        self, indexing_tools, tmp_path, mock_batch_processor
+    ):
         """Test indexing empty directory."""
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
 
         empty_result = BatchResult(
-            new_documents=0,
-            duplicates_skipped=0,
-            errors=[],
-            chunk_ids={}
+            new_documents=0, duplicates_skipped=0, errors=[], chunk_ids={}
         )
         mock_batch_processor.process_directory.return_value = empty_result
 
@@ -375,13 +398,12 @@ class TestIndexDirectoryTool:
         assert len(result["data"]["indexed_files"]) == 0
 
     @pytest.mark.asyncio
-    async def test_index_directory_all_duplicates(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_all_duplicates(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test indexing directory where all files are duplicates."""
         all_duplicates = BatchResult(
-            new_documents=0,
-            duplicates_skipped=10,
-            errors=[],
-            chunk_ids={}
+            new_documents=0, duplicates_skipped=10, errors=[], chunk_ids={}
         )
         mock_batch_processor.process_directory.return_value = all_duplicates
 
@@ -392,7 +414,9 @@ class TestIndexDirectoryTool:
         assert result["data"]["duplicates_skipped"] == 10
 
     @pytest.mark.asyncio
-    async def test_index_directory_unexpected_error(self, indexing_tools, temp_test_dir, mock_batch_processor):
+    async def test_index_directory_unexpected_error(
+        self, indexing_tools, temp_test_dir, mock_batch_processor
+    ):
         """Test handling unexpected exception."""
         mock_batch_processor.process_directory.side_effect = RuntimeError("Unexpected")
 
@@ -409,8 +433,7 @@ class TestResultFormatting:
     def test_format_result_structure(self, indexing_tools):
         """Test format_result creates correct structure."""
         result = indexing_tools._format_result(
-            operation="test_op",
-            data={"key": "value", "count": 42}
+            operation="test_op", data={"key": "value", "count": 42}
         )
 
         assert result["success"] is True
@@ -421,8 +444,7 @@ class TestResultFormatting:
     def test_format_error_structure(self, indexing_tools):
         """Test format_error creates correct structure."""
         result = indexing_tools._format_error(
-            operation="test_op",
-            error="Something went wrong"
+            operation="test_op", error="Something went wrong"
         )
 
         assert result["success"] is False
@@ -431,10 +453,7 @@ class TestResultFormatting:
 
     def test_format_result_with_empty_data(self, indexing_tools):
         """Test formatting result with empty data."""
-        result = indexing_tools._format_result(
-            operation="test_op",
-            data={}
-        )
+        result = indexing_tools._format_result(operation="test_op", data={})
 
         assert result["success"] is True
         assert result["data"] == {}
@@ -445,8 +464,8 @@ class TestResultFormatting:
             operation="test_op",
             data={
                 "summary": {"total": 10, "success": 8},
-                "details": [{"id": 1}, {"id": 2}]
-            }
+                "details": [{"id": 1}, {"id": 2}],
+            },
         )
 
         assert result["success"] is True
@@ -458,7 +477,9 @@ class TestIntegration:
     """Integration tests combining multiple components."""
 
     @pytest.mark.asyncio
-    async def test_index_file_and_directory_sequence(self, indexing_tools, tmp_path, mock_indexer, mock_batch_processor):
+    async def test_index_file_and_directory_sequence(
+        self, indexing_tools, tmp_path, mock_indexer, mock_batch_processor
+    ):
         """Test indexing file followed by directory."""
         # Create test files
         file1 = tmp_path / "single.txt"
@@ -481,7 +502,9 @@ class TestIntegration:
         assert mock_batch_processor.process_directory.called
 
     @pytest.mark.asyncio
-    async def test_mixed_success_and_failure(self, indexing_tools, tmp_path, mock_indexer):
+    async def test_mixed_success_and_failure(
+        self, indexing_tools, tmp_path, mock_indexer
+    ):
         """Test handling mixed success and failure operations."""
         good_file = tmp_path / "good.txt"
         good_file.write_text("Content")

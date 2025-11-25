@@ -78,6 +78,7 @@ The system follows a layered architecture with clear separation of concerns:
 **Layer 2: Tool Interfaces** (`mcp_tools/`)
 - `indexing_tools.py`: Orchestrates file/directory indexing workflows
 - `query_tools.py`: Manages search and retrieval operations
+- `management_tools.py`: Handles delete operations and collection management
 - Validates inputs, formats responses, handles errors
 
 **Layer 3: Business Logic**
@@ -97,6 +98,12 @@ The system follows a layered architecture with clear separation of concerns:
 - `pdf_chunker.py`: Page-aware chunking for PDFs
 - `code_chunker.py`: AST-based chunking for Python code
 - `text_chunker.py`: Paragraph-based chunking for plain text
+
+**Automatic Chunk Splitting**: Chunks that exceed `max_tokens` are automatically split via `split_oversized_chunk()` in `base.py`. The splitting strategy prioritizes semantic boundaries:
+1. Paragraph boundaries (double newline) first
+2. Falls back to line boundaries if needed
+3. Word boundaries as final fallback
+Split chunks include `split_part` metadata for tracking.
 
 **Layer 5: Services**
 - `embedding/ollama_client.py`: Ollama API client with retry logic
@@ -120,12 +127,33 @@ The system follows a layered architecture with clear separation of concerns:
 4. Results → Token budget enforcement (if budget specified)
 5. Results → Formatted with similarity scores and returned
 
+## MCP Tools Reference
+
+The server exposes nine tools organized into three categories:
+
+### Indexing Tools
+- `index_file(file_path)` - Index a single document file
+- `index_directory(dir_path, recursive=True)` - Batch index multiple documents with deduplication
+
+### Search Tools
+- `search(query, n_results=5)` - Basic semantic search
+- `search_with_filters(query, filters, n_results=5)` - Search with metadata filtering
+- `search_with_budget(query, max_tokens)` - Token-budget aware search
+
+### Management Tools
+- `delete_chunks(ids)` - Delete specific chunks by their IDs
+- `delete_file(source_file)` - Delete all chunks from a source file
+- `clear_index(confirm)` - Clear entire collection (**requires `confirm=True`** to prevent accidental data loss)
+- `get_index_stats()` - Get collection statistics (total chunks, unique files, file list)
+
+For full API specifications including input/output schemas, examples, and error codes, see `docs/API.md`.
+
 ### Important Design Patterns
 
 **Dependency Injection**: All components receive dependencies via constructor
 - Makes testing easier (mock dependencies)
 - Makes initialization order explicit
-- Example: `Indexer(embedder, storage, chunk_size, batch_size)`
+- Example: `Indexer(embedder, storage, chunk_size, batch_size, max_tokens)`
 
 **Format-Specific Chunking**: File extension determines chunker strategy
 - `.md` → MarkdownChunker (preserves header hierarchy)
@@ -159,11 +187,12 @@ The system follows a layered architecture with clear separation of concerns:
 The initialization sequence in `initialize_components()` follows the dependency graph:
 1. OllamaClient (no dependencies)
 2. ChromaStore (no dependencies)
-3. DocumentHasher (no dependencies)
-4. Indexer (depends on embedder, storage)
-5. BatchProcessor (depends on indexer, hasher, storage)
-6. IndexingTools (depends on batch_processor, indexer)
-7. QueryTools (depends on embedder, storage)
+3. ManagementTools (depends on storage)
+4. DocumentHasher (no dependencies)
+5. Indexer (depends on embedder, storage)
+6. BatchProcessor (depends on indexer, hasher, storage)
+7. IndexingTools (depends on batch_processor, indexer)
+8. QueryTools (depends on embedder, storage)
 
 ### Token Approximation
 - Chunkers use character-based chunk sizes (chunk_size * 4 chars)
@@ -207,7 +236,7 @@ The initialization sequence in `initialize_components()` follows the dependency 
 
 ### Adding a New MCP Tool
 
-1. Implement logic in appropriate tool class (`indexing_tools.py` or `query_tools.py`)
+1. Implement logic in appropriate tool class (`indexing_tools.py`, `query_tools.py`, or `management_tools.py`)
 
 2. Register tool handler in `__main__.py`:
    ```python
@@ -219,7 +248,7 @@ The initialization sequence in `initialize_components()` follows the dependency 
        return await indexing_tools.my_method(param)
    ```
 
-3. Add tests in `tests/test_mcp_indexing_tools.py` or `tests/test_mcp_query_tools.py`
+3. Add tests in `tests/test_mcp_indexing_tools.py`, `tests/test_mcp_query_tools.py`, or `tests/test_mcp_management_tools.py`
 
 ### Testing with Mock Services
 
@@ -245,8 +274,9 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 | `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
 | `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
 | `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
-| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `256` | Maximum tokens per chunk |
-| `DOCVEC_BATCH_SIZE` | `--batch-size` | `16` | Batch size for embedding generation |
+| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `512` | Maximum tokens per chunk |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `32` | Batch size for embedding generation |
+| `DOCVEC_MAX_TOKENS` | `--max-tokens` | `512` | Maximum tokens per chunk for embedding model limits |
 | `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
