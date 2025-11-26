@@ -11,6 +11,7 @@ A Model Context Protocol (MCP) server that provides semantic document indexing a
 - [Basic Usage](#basic-usage)
   - [Indexing Documents](#indexing-documents)
   - [Searching Documents](#searching-documents)
+  - [Managing the Index](#managing-the-index)
 - [Configuration](#configuration)
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
@@ -69,7 +70,7 @@ ollama pull mxbai-embed-large
 2. Install the MCP server:
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/docvec.git
+git clone https://github.com/blueman82/docvec.git
 cd docvec
 
 # Install dependencies using uv
@@ -144,6 +145,27 @@ Token-budget aware search:
 search_with_budget(query="deployment guide", max_tokens=2000)
 ```
 
+### Managing the Index
+
+Get collection statistics:
+```python
+# Via MCP tool from Claude
+get_index_stats()
+# Returns: total_chunks, unique_files, source_files list
+```
+
+Delete chunks from a specific file:
+```python
+# Via MCP tool from Claude
+delete_file(source_file="/path/to/old_document.md")
+```
+
+Clear entire index (requires confirmation):
+```python
+# Via MCP tool from Claude
+clear_index(confirm=True)
+```
+
 [↑ Back to top](#table-of-contents)
 
 ## Configuration
@@ -156,8 +178,9 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 | `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
 | `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
 | `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
-| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `256` | Maximum tokens per chunk |
-| `DOCVEC_BATCH_SIZE` | `--batch-size` | `16` | Batch size for embedding generation |
+| `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `512` | Target tokens per chunk |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `32` | Batch size for embedding generation |
+| `DOCVEC_MAX_TOKENS` | `--max-tokens` | `512` | Maximum tokens per chunk (splits oversized chunks) |
 | `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
@@ -169,32 +192,31 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 docvec/
 ├── src/
 │   └── docvec/
-│       ├── config.py              # Configuration management
-│       ├── token_counter.py       # Token counting with tiktoken
 │       ├── chunking/
-│       │   ├── base.py           # Abstract chunker interface
+│       │   ├── base.py            # Abstract chunker + split_oversized_chunk utility
 │       │   ├── markdown_chunker.py
 │       │   ├── pdf_chunker.py
 │       │   ├── text_chunker.py
-│       │   └── code_chunker.py
+│       │   └── code_chunker.py    # AST-based Python chunking
 │       ├── embedding/
-│       │   └── ollama_client.py  # Ollama API client
+│       │   └── ollama_client.py   # Ollama API client
 │       ├── storage/
-│       │   └── chroma_store.py   # ChromaDB wrapper
+│       │   └── chroma_store.py    # ChromaDB wrapper
 │       ├── deduplication/
-│       │   └── hasher.py         # SHA-256 document hashing
+│       │   └── hasher.py          # SHA-256 document hashing
 │       ├── indexing/
-│       │   ├── indexer.py        # Document indexing orchestrator
-│       │   └── batch_processor.py
+│       │   ├── indexer.py         # Document indexing orchestrator
+│       │   └── batch_processor.py # Batch directory indexing
 │       ├── mcp_tools/
-│       │   ├── indexing_tools.py # MCP indexing tools
-│       │   └── query_tools.py    # MCP query tools
-│       ├── mcp_server.py         # MCP server implementation
-│       └── __main__.py           # Entry point
-├── tests/                        # Test suite
-├── docs/                         # Documentation
-├── pyproject.toml               # Project configuration
-└── README.md                    # This file
+│       │   ├── indexing_tools.py  # MCP indexing tools
+│       │   ├── query_tools.py     # MCP search tools
+│       │   └── management_tools.py # MCP delete/stats tools
+│       ├── mcp_server.py          # MCP server implementation
+│       └── __main__.py            # Entry point + CLI
+├── tests/                         # Test suite
+├── docs/                          # Documentation
+├── pyproject.toml                 # Project configuration
+└── README.md                      # This file
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -331,8 +353,8 @@ Contributions are welcome! Please see CONTRIBUTING.md for guidelines.
 
 ## Support
 
-- Issues: https://github.com/yourusername/docvec/issues
-- Discussions: https://github.com/yourusername/docvec/discussions
-- Documentation: https://github.com/yourusername/docvec/wiki
+- Issues: https://github.com/blueman82/docvec/issues
+- Discussions: https://github.com/blueman82/docvec/discussions
+- Documentation: https://github.com/blueman82/docvec/wiki
 
 [↑ Back to top](#table-of-contents)
