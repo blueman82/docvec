@@ -27,40 +27,40 @@ ollama pull nomic-embed-text
 ### Testing
 ```bash
 # Run all tests with coverage
-python -m pytest tests/ -v --cov=src/docvec --cov-report=html
+uv run pytest tests/ -v --cov=src/docvec --cov-report=html
 
 # Run specific test file
-python -m pytest tests/test_indexer.py -v
+uv run pytest tests/test_indexer.py -v
 
 # Run single test function
-python -m pytest tests/test_indexer.py::test_index_document -v
+uv run pytest tests/test_indexer.py::test_index_document -v
 
 # Run integration tests only
-python -m pytest tests/test_integration.py -v
+uv run pytest tests/test_integration.py -v
 ```
 
 ### Running the MCP Server
 ```bash
 # Run with default configuration
-python -m docvec
+uv run python -m docvec
 
 # Run with custom configuration
-python -m docvec --host http://localhost:11434 --model nomic-embed-text --db-path ./my_chroma_db --log-level DEBUG
+uv run python -m docvec --host http://localhost:11434 --model nomic-embed-text --db-path ./my_chroma_db --log-level DEBUG
 
 # View available CLI options
-python -m docvec --help
+uv run python -m docvec --help
 ```
 
 ### Code Quality
 ```bash
 # Format code
-python -m black src/ tests/
+uv run black src/ tests/
 
 # Lint code
-python -m ruff check src/ tests/
+uv run ruff check src/ tests/
 
 # Type checking
-python -m mypy src/
+uv run mypy src/
 ```
 
 ## Architecture
@@ -163,7 +163,7 @@ For full API specifications including input/output schemas, examples, and error 
 
 **Batch Processing**: Embeddings generated in configurable batches
 - Reduces API calls to Ollama
-- Default batch_size=16 in Indexer
+- Default batch_size=32 in Indexer
 - Trade-off: memory usage vs API efficiency
 
 **Hash-Based Deduplication**: SHA-256 hashes stored in metadata
