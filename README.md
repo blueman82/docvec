@@ -52,7 +52,8 @@ A Model Context Protocol (MCP) server that provides semantic document indexing a
 ### Prerequisites
 
 - Python 3.11 or higher
-- Ollama installed and running
+- [uv](https://docs.astral.sh/uv/) package manager (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- [Ollama](https://ollama.ai) installed and running
 - 2GB+ free disk space for ChromaDB
 
 ### Installation
@@ -62,6 +63,9 @@ A Model Context Protocol (MCP) server that provides semantic document indexing a
 # Install Ollama (https://ollama.ai)
 # macOS/Linux:
 curl -fsSL https://ollama.ai/install.sh | sh
+
+# Start Ollama (runs in background)
+ollama serve &
 
 # Pull the embedding model
 ollama pull mxbai-embed-large
@@ -73,28 +77,38 @@ ollama pull mxbai-embed-large
 git clone https://github.com/blueman82/docvec.git
 cd docvec
 
-# Install dependencies using uv
+# Install dependencies using uv (https://docs.astral.sh/uv/)
 uv sync
 ```
 
 3. Configure Claude Code to use the MCP server:
 
-Add to `~/.claude/config/mcp.json`:
+Add to your Claude Code MCP config (`~/.claude/config/mcp.json` or via Claude Code settings):
 ```json
 {
   "mcpServers": {
     "docvec": {
       "command": "uv",
       "args": ["run", "python", "-m", "docvec"],
+      "cwd": "/path/to/docvec",
       "env": {
-        "DOCVEC_DB_PATH": "/Users/yourusername/.docvec/chroma_db"
+        "DOCVEC_DB_PATH": "/path/to/your/chroma_db"
       }
     }
   }
 }
 ```
 
-4. Start using the server from Claude Code:
+**Important:** Replace `/path/to/docvec` with the actual path where you cloned the repo, and `/path/to/your/chroma_db` with where you want to store the vector database (e.g., `~/.docvec/chroma_db`).
+
+4. Verify the setup:
+```bash
+# Restart Claude Code to load the MCP server
+# Then ask Claude to check the index:
+"What's in the docvec index? Use get_index_stats"
+```
+
+5. Start indexing and searching:
 ```
 Ask Claude to index your documents:
 "Index all markdown files in /path/to/docs"
