@@ -15,13 +15,15 @@ DocVec - A Model Context Protocol server that provides semantic document indexin
 
 ### Environment Setup
 ```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Install dependencies
 uv sync
 
-# Ensure Ollama is running with the embedding model
-ollama pull mxbai-embed-large
-# or
-ollama pull nomic-embed-text
+# Start Ollama and pull embedding model
+ollama serve &  # if not already running
+ollama pull mxbai-embed-large  # or nomic-embed-text
 ```
 
 ### Testing
