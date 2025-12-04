@@ -103,6 +103,7 @@ def mock_embedder() -> OllamaClient:
     embedder.embed_document = Mock(side_effect=mock_embed)  # For document embeddings
     embedder.embed_batch = Mock(side_effect=mock_embed_batch)
     embedder.health_check = Mock(return_value=True)
+    embedder.ensure_model = Mock(return_value=True)  # Auto-pull model check
 
     return embedder
 

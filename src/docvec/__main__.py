@@ -183,11 +183,13 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
             timeout=args.timeout,
         )
 
-        # Health check
-        if not embedder.health_check():
-            logger.warning(
-                f"Ollama health check failed. Model {args.model} may not be available."
+        # Ensure model is available (auto-pull if needed)
+        if not embedder.ensure_model():
+            logger.error(
+                f"Failed to ensure model '{args.model}' is available. "
+                "Please check that Ollama is running and the model name is correct."
             )
+            raise RuntimeError(f"Model '{args.model}' could not be loaded or pulled")
 
         components["embedder"] = embedder
 

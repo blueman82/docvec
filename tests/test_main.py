@@ -166,7 +166,7 @@ class TestComponentInitialization:
         """Test that components are initialized in correct dependency order."""
         # Setup mocks
         mock_ollama_instance = Mock()
-        mock_ollama_instance.health_check.return_value = True
+        mock_ollama_instance.ensure_model.return_value = True
         mock_ollama.return_value = mock_ollama_instance
 
         mock_chroma_instance = Mock()
@@ -252,16 +252,16 @@ class TestComponentInitialization:
         )
 
     @patch("docvec.__main__.OllamaClient")
-    def test_initialize_components_health_check_warning(self, mock_ollama):
-        """Test that health check failure logs a warning but continues."""
-        # Setup mock to fail health check
+    def test_initialize_components_ensure_model_failure_raises(self, mock_ollama):
+        """Test that ensure_model failure raises RuntimeError."""
+        # Setup mock to fail ensure_model (model not available and can't pull)
         mock_ollama_instance = Mock()
-        mock_ollama_instance.health_check.return_value = False
+        mock_ollama_instance.ensure_model.return_value = False
         mock_ollama.return_value = mock_ollama_instance
 
         args = argparse.Namespace(
             host="http://localhost:11434",
-            model="nomic-embed-text",
+            model="nonexistent-model",
             timeout=30,
             db_path="./test_db",
             collection="test_collection",
@@ -270,18 +270,9 @@ class TestComponentInitialization:
             max_tokens=512,
         )
 
-        # Should not raise exception
-        with (
-            patch("docvec.__main__.ChromaStore"),
-            patch("docvec.__main__.DocumentHasher"),
-            patch("docvec.__main__.Indexer"),
-            patch("docvec.__main__.BatchProcessor"),
-            patch("docvec.__main__.IndexingTools"),
-            patch("docvec.__main__.QueryTools"),
-        ):
-
-            components = initialize_components(args)
-            assert "embedder" in components
+        # Should raise RuntimeError when model can't be ensured
+        with pytest.raises(RuntimeError, match="could not be loaded or pulled"):
+            initialize_components(args)
 
     @patch("docvec.__main__.OllamaClient")
     def test_initialize_components_failure_raises_exception(self, mock_ollama):

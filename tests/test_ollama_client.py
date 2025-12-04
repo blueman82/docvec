@@ -363,3 +363,120 @@ class TestOllamaClient:
 
         with pytest.raises(EmbeddingError):
             client.embed("Hello")
+
+
+class TestModelManagement:
+    """Test model availability and auto-pull functionality."""
+
+    @patch("requests.Session.get")
+    def test_is_model_available_true(self, mock_get):
+        """Test is_model_available returns True when model exists."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "models": [{"name": "mxbai-embed-large"}, {"name": "llama2"}]
+        }
+        mock_get.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        assert client.is_model_available() is True
+
+    @patch("requests.Session.get")
+    def test_is_model_available_false(self, mock_get):
+        """Test is_model_available returns False when model not found."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"models": [{"name": "llama2"}]}
+        mock_get.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        assert client.is_model_available() is False
+
+    @patch("requests.Session.get")
+    def test_is_model_available_server_error(self, mock_get):
+        """Test is_model_available returns False on server error."""
+        mock_get.side_effect = requests.RequestException("Connection refused")
+
+        client = OllamaClient()
+        assert client.is_model_available() is False
+
+    @patch("requests.Session.post")
+    def test_pull_model_success(self, mock_post):
+        """Test successful model pull."""
+        # Simulate streaming response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = [
+            b'{"status": "pulling manifest"}',
+            b'{"status": "pulling abc123", "total": 1000, "completed": 500}',
+            b'{"status": "pulling abc123", "total": 1000, "completed": 1000}',
+            b'{"status": "success"}',
+        ]
+        mock_post.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        result = client.pull_model()
+
+        assert result is True
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert call_args[1]["json"]["name"] == "mxbai-embed-large"
+
+    @patch("requests.Session.post")
+    def test_pull_model_failure(self, mock_post):
+        """Test model pull failure."""
+        mock_post.side_effect = requests.RequestException("Network error")
+
+        client = OllamaClient(model="nonexistent-model")
+        result = client.pull_model()
+
+        assert result is False
+
+    @patch("requests.Session.post")
+    def test_pull_model_no_stream(self, mock_post):
+        """Test model pull without streaming."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        result = client.pull_model(stream=False)
+
+        assert result is True
+
+    @patch.object(OllamaClient, "is_model_available")
+    def test_ensure_model_already_available(self, mock_available):
+        """Test ensure_model when model is already available."""
+        mock_available.return_value = True
+
+        client = OllamaClient(model="mxbai-embed-large")
+        result = client.ensure_model()
+
+        assert result is True
+        mock_available.assert_called_once()
+
+    @patch.object(OllamaClient, "is_model_available")
+    @patch.object(OllamaClient, "pull_model")
+    def test_ensure_model_pulls_when_missing(self, mock_pull, mock_available):
+        """Test ensure_model pulls when model is not available."""
+        mock_available.return_value = False
+        mock_pull.return_value = True
+
+        client = OllamaClient(model="mxbai-embed-large")
+        result = client.ensure_model()
+
+        assert result is True
+        mock_available.assert_called_once()
+        mock_pull.assert_called_once()
+
+    @patch.object(OllamaClient, "is_model_available")
+    @patch.object(OllamaClient, "pull_model")
+    def test_ensure_model_pull_fails(self, mock_pull, mock_available):
+        """Test ensure_model returns False when pull fails."""
+        mock_available.return_value = False
+        mock_pull.return_value = False
+
+        client = OllamaClient(model="invalid-model")
+        result = client.ensure_model()
+
+        assert result is False

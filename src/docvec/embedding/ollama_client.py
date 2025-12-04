@@ -7,11 +7,14 @@ This module provides an HTTP client for the Ollama embeddings API with:
 - Configurable timeout handling
 """
 
+import logging
 import time
 from functools import wraps
 from typing import Callable
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingError(Exception):
@@ -148,6 +151,117 @@ class OllamaClient:
 
         except Exception:
             return False
+
+    def is_model_available(self) -> bool:
+        """Check if the configured model is available locally.
+
+        Returns:
+            True if model is available, False otherwise
+        """
+        try:
+            response = self._session.get(f"{self.host}/api/tags", timeout=self.timeout)
+            response.raise_for_status()
+            models_data = response.json()
+            available_models = [
+                m.get("name", "") for m in models_data.get("models", [])
+            ]
+            return any(self.model in model_name for model_name in available_models)
+        except Exception:
+            return False
+
+    def pull_model(self, stream: bool = True) -> bool:
+        """Pull/download the configured model from Ollama registry.
+
+        This is a blocking operation that downloads the model if not present.
+        For large models (like mxbai-embed-large ~670MB), this may take
+        several minutes depending on network speed.
+
+        Args:
+            stream: If True, streams progress to logger (default: True)
+
+        Returns:
+            True if model was pulled successfully, False otherwise
+
+        Example:
+            >>> client = OllamaClient(model="mxbai-embed-large")
+            >>> if not client.is_model_available():
+            ...     client.pull_model()
+        """
+        logger.info(f"Pulling model '{self.model}' from Ollama registry...")
+
+        try:
+            response = self._session.post(
+                f"{self.host}/api/pull",
+                json={"name": self.model, "stream": stream},
+                timeout=None,  # No timeout for model pulls (can take minutes)
+                stream=stream,
+            )
+            response.raise_for_status()
+
+            if stream:
+                # Process streaming response to show progress
+                last_status = ""
+                for line in response.iter_lines():
+                    if line:
+                        try:
+                            import json
+
+                            data = json.loads(line)
+                            status = data.get("status", "")
+
+                            # Log progress updates (deduplicated)
+                            if status != last_status:
+                                if "pulling" in status:
+                                    total = data.get("total", 0)
+                                    completed = data.get("completed", 0)
+                                    if total > 0:
+                                        pct = (completed / total) * 100
+                                        logger.info(
+                                            f"Pulling {self.model}: {pct:.1f}% "
+                                            f"({completed}/{total} bytes)"
+                                        )
+                                    else:
+                                        logger.info(f"Pulling {self.model}: {status}")
+                                elif status == "success":
+                                    logger.info(
+                                        f"Successfully pulled model '{self.model}'"
+                                    )
+                                else:
+                                    logger.info(f"Pull status: {status}")
+                                last_status = status
+                        except (ValueError, KeyError):
+                            continue
+            else:
+                logger.info(f"Successfully pulled model '{self.model}'")
+
+            return True
+
+        except requests.RequestException as e:
+            logger.error(f"Failed to pull model '{self.model}': {e}")
+            return False
+
+    def ensure_model(self) -> bool:
+        """Ensure the model is available, pulling it if necessary.
+
+        This is the recommended method to call during initialization to
+        guarantee the model is ready for use.
+
+        Returns:
+            True if model is available (was already present or pulled successfully),
+            False if model could not be made available
+
+        Example:
+            >>> client = OllamaClient(model="mxbai-embed-large")
+            >>> if client.ensure_model():
+            ...     # Safe to use embeddings
+            ...     embedding = client.embed("Hello world")
+        """
+        if self.is_model_available():
+            logger.info(f"Model '{self.model}' is already available")
+            return True
+
+        logger.info(f"Model '{self.model}' not found locally, attempting to pull...")
+        return self.pull_model()
 
     @retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0)
     def _request_with_retry(self, payload: dict) -> requests.Response:

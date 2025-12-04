@@ -35,7 +35,8 @@ def mock_hasher():
 def mock_storage():
     """Provide mock ChromaStore."""
     storage = Mock()
-    # Default: no duplicates
+    # Default: no duplicates (file not indexed, no content match)
+    storage.get_by_source_file.return_value = None
     storage.get_by_hash.return_value = None
     return storage
 
@@ -182,12 +183,50 @@ class TestBatchProcessorFileDiscovery:
 class TestBatchProcessorDeduplication:
     """Test deduplication functionality."""
 
-    def test_is_duplicate_true(self, processor, mock_storage, tmp_path):
-        """Test detecting duplicate document."""
+    def test_is_duplicate_true_same_file_same_hash(self, processor, mock_storage, tmp_path):
+        """Test detecting duplicate when file path exists with same hash."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")
 
-        # Mock storage to return existing document
+        # Mock storage: file is already indexed with same hash
+        mock_storage.get_by_source_file.return_value = {
+            "ids": ["existing_id"],
+            "documents": ["Content"],
+            "metadatas": [{"doc_hash": "abc123"}],
+        }
+
+        is_dup = processor._is_duplicate(file_path, "abc123")
+
+        assert is_dup is True
+        mock_storage.get_by_source_file.assert_called_once_with(str(file_path))
+
+    def test_is_duplicate_false_same_file_different_hash(self, processor, mock_storage, tmp_path):
+        """Test re-indexing when file content changed (different hash)."""
+        file_path = tmp_path / "test.txt"
+        file_path.write_text("New content")
+
+        # Mock storage: file exists with different hash (content changed)
+        mock_storage.get_by_source_file.return_value = {
+            "ids": ["existing_id"],
+            "documents": ["Old content"],
+            "metadatas": [{"doc_hash": "old_hash"}],
+        }
+        mock_storage.get_by_hash.return_value = None
+
+        is_dup = processor._is_duplicate(file_path, "new_hash")
+
+        # Should NOT be duplicate - will re-index
+        assert is_dup is False
+        # Should have deleted old chunks
+        mock_storage.delete_by_source_file.assert_called_once_with(str(file_path))
+
+    def test_is_duplicate_true_content_duplicate(self, processor, mock_storage, tmp_path):
+        """Test detecting content duplicate under different path."""
+        file_path = tmp_path / "test.txt"
+        file_path.write_text("Content")
+
+        # Mock storage: file path not indexed, but same content exists
+        mock_storage.get_by_source_file.return_value = None
         mock_storage.get_by_hash.return_value = {
             "ids": ["existing_id"],
             "documents": ["Content"],
@@ -199,12 +238,13 @@ class TestBatchProcessorDeduplication:
         assert is_dup is True
         mock_storage.get_by_hash.assert_called_once_with("abc123")
 
-    def test_is_duplicate_false(self, processor, mock_storage, tmp_path):
-        """Test detecting non-duplicate document."""
+    def test_is_duplicate_false_new_file(self, processor, mock_storage, tmp_path):
+        """Test detecting new document (not indexed, no content match)."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")
 
-        # Mock storage to return None (not found)
+        # Mock storage: neither file nor content exists
+        mock_storage.get_by_source_file.return_value = None
         mock_storage.get_by_hash.return_value = None
 
         is_dup = processor._is_duplicate(file_path, "abc123")
@@ -219,7 +259,7 @@ class TestBatchProcessorDeduplication:
         file_path.write_text("Content")
 
         # Mock storage to raise error
-        mock_storage.get_by_hash.side_effect = StorageError("DB error")
+        mock_storage.get_by_source_file.side_effect = StorageError("DB error")
 
         # Should return False on error to avoid skipping files
         is_dup = processor._is_duplicate(file_path, "abc123")
