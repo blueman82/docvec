@@ -73,4 +73,4 @@ chroma_db
 logs/
 
 # AI Counsel Transripts
-transcripts/
+transcripts/.DS_Store
