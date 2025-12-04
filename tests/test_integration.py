@@ -92,11 +92,15 @@ def mock_embedder() -> OllamaClient:
         magnitude = sum(x * x for x in base_vector) ** 0.5
         return [x / magnitude for x in base_vector]
 
-    def mock_embed_batch(texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def mock_embed_batch(
+        texts: list[str], batch_size: int = 32, is_query: bool = False
+    ) -> list[list[float]]:
         """Generate embeddings for batch of texts."""
         return [mock_embed(text) for text in texts]
 
     embedder.embed = Mock(side_effect=mock_embed)
+    embedder.embed_query = Mock(side_effect=mock_embed)  # For query embeddings
+    embedder.embed_document = Mock(side_effect=mock_embed)  # For document embeddings
     embedder.embed_batch = Mock(side_effect=mock_embed_batch)
     embedder.health_check = Mock(return_value=True)
 
@@ -227,8 +231,12 @@ def populated_db_path() -> Generator[Path, None, None]:
             return [x / magnitude for x in base_vector]
 
         embedder.embed = Mock(side_effect=mock_embed)
+        embedder.embed_query = Mock(side_effect=mock_embed)
+        embedder.embed_document = Mock(side_effect=mock_embed)
         embedder.embed_batch = Mock(
-            side_effect=lambda texts, batch_size=32: [mock_embed(t) for t in texts]
+            side_effect=lambda texts, batch_size=32, is_query=False: [
+                mock_embed(t) for t in texts
+            ]
         )
 
         storage = ChromaStore(db_path=db_path, collection_name="session_collection")

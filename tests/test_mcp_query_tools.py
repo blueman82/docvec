@@ -26,8 +26,10 @@ from docvec.storage.chroma_store import ChromaStore, StorageError
 def mock_embedder():
     """Provide mock OllamaClient for testing."""
     embedder = Mock(spec=OllamaClient)
-    # Return a consistent embedding vector
+    # Return a consistent embedding vector for all embed methods
     embedder.embed.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+    embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+    embedder.embed_document.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
     return embedder
 
 
@@ -151,8 +153,8 @@ class TestSearch:
 
         result = await query_tools.search("python", n_results=5)
 
-        # Verify embedder was called
-        mock_embedder.embed.assert_called_once_with("python")
+        # Verify embedder was called with embed_query (for model-specific prefixes)
+        mock_embedder.embed_query.assert_called_once_with("python")
 
         # Verify storage search was called with correct parameters
         mock_storage.search.assert_called_once()
@@ -221,7 +223,7 @@ class TestSearch:
         self, query_tools, mock_embedder
     ):
         """Test that embedding error is wrapped in QueryError."""
-        mock_embedder.embed.side_effect = EmbeddingError("Embedding failed")
+        mock_embedder.embed_query.side_effect = EmbeddingError("Embedding failed")
 
         with pytest.raises(QueryError, match="Search failed"):
             await query_tools.search("test")
@@ -521,17 +523,17 @@ class TestEmbedQuery:
     """Test query embedding functionality."""
 
     def test_embed_query_calls_embedder(self, query_tools, mock_embedder):
-        """Test that _embed_query calls embedder correctly."""
-        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        """Test that _embed_query calls embedder.embed_query() correctly."""
+        mock_embedder.embed_query.return_value = [0.1, 0.2, 0.3]
 
         result = query_tools._embed_query("test query")
 
-        mock_embedder.embed.assert_called_once_with("test query")
+        mock_embedder.embed_query.assert_called_once_with("test query")
         assert result == [0.1, 0.2, 0.3]
 
     def test_embed_query_propagates_error(self, query_tools, mock_embedder):
         """Test that embedding errors are propagated."""
-        mock_embedder.embed.side_effect = EmbeddingError("Failed")
+        mock_embedder.embed_query.side_effect = EmbeddingError("Failed")
 
         with pytest.raises(EmbeddingError):
             query_tools._embed_query("test")
@@ -567,7 +569,7 @@ class TestIntegration:
 
         # Create mock embedder
         mock_embedder = Mock(spec=OllamaClient)
-        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_query.return_value = [0.1, 0.2, 0.3]
 
         # Create QueryTools
         tools = QueryTools(embedder=mock_embedder, storage=storage)

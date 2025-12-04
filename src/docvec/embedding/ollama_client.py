@@ -180,11 +180,51 @@ class OllamaClient:
         except requests.RequestException as e:
             raise EmbeddingError(f"Ollama API request failed: {e}") from e
 
-    def embed(self, text: str) -> list[float]:
+    def _get_query_prefix(self) -> str:
+        """Get the query prefix for the current model.
+
+        Different embedding models require different prefixes for queries
+        to achieve optimal retrieval performance.
+
+        Returns:
+            Query prefix string, or empty string if no prefix needed
+        """
+        model_lower = self.model.lower()
+
+        # mxbai-embed models require this specific prefix for queries
+        if "mxbai" in model_lower:
+            return "Represent this sentence for searching relevant passages: "
+
+        # nomic-embed-text uses search_query prefix
+        if "nomic" in model_lower:
+            return "search_query: "
+
+        # Default: no prefix
+        return ""
+
+    def _get_document_prefix(self) -> str:
+        """Get the document prefix for the current model.
+
+        Some embedding models require prefixes for documents during indexing.
+
+        Returns:
+            Document prefix string, or empty string if no prefix needed
+        """
+        model_lower = self.model.lower()
+
+        # nomic-embed-text uses search_document prefix
+        if "nomic" in model_lower:
+            return "search_document: "
+
+        # mxbai and most others: no prefix for documents
+        return ""
+
+    def embed(self, text: str, is_query: bool = False) -> list[float]:
         """Generate embedding for a single text.
 
         Args:
             text: Input text to embed
+            is_query: If True, apply query-specific prefix for the model
 
         Returns:
             Embedding vector as list of floats
@@ -203,7 +243,15 @@ class OllamaClient:
             raise ValueError("Text cannot be empty")
 
         try:
-            payload = {"model": self.model, "prompt": text}
+            # Apply model-specific prefix
+            if is_query:
+                prefix = self._get_query_prefix()
+            else:
+                prefix = self._get_document_prefix()
+
+            prefixed_text = f"{prefix}{text}" if prefix else text
+
+            payload = {"model": self.model, "prompt": prefixed_text}
             response = self._request_with_retry(payload)
 
             data = response.json()
@@ -219,16 +267,68 @@ class OllamaClient:
         except Exception as e:
             raise EmbeddingError(f"Failed to generate embedding: {e}") from e
 
-    def embed_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def embed_query(self, text: str) -> list[float]:
+        """Generate embedding for a query (with model-specific prefix).
+
+        This is a convenience method that calls embed() with is_query=True.
+        Use this for search queries to get optimal retrieval performance.
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            Query embedding vector as list of floats
+
+        Raises:
+            EmbeddingError: If embedding generation fails
+            ValueError: If text is empty
+
+        Example:
+            >>> client = OllamaClient(model="mxbai-embed-large")
+            >>> # Automatically prefixes with "Represent this sentence..."
+            >>> embedding = client.embed_query("What is machine learning?")
+        """
+        return self.embed(text, is_query=True)
+
+    def embed_document(self, text: str) -> list[float]:
+        """Generate embedding for a document (with model-specific prefix).
+
+        This is a convenience method that calls embed() with is_query=False.
+        Use this for indexing documents.
+
+        Args:
+            text: Document text to embed
+
+        Returns:
+            Document embedding vector as list of floats
+
+        Raises:
+            EmbeddingError: If embedding generation fails
+            ValueError: If text is empty
+
+        Example:
+            >>> client = OllamaClient(model="nomic-embed-text")
+            >>> # Automatically prefixes with "search_document: "
+            >>> embedding = client.embed_document("Python is a programming language.")
+        """
+        return self.embed(text, is_query=False)
+
+    def embed_batch(
+        self, texts: list[str], batch_size: int = 32, is_query: bool = False
+    ) -> list[list[float]]:
         """Generate embeddings for multiple texts in batches.
 
         Processes texts in batches to reduce API calls and improve performance.
         For example, 100 texts with batch_size=32 results in 4 API calls
         instead of 100.
 
+        By default, applies document prefixes (for indexing). Use is_query=True
+        for batch query embedding (less common).
+
         Args:
             texts: List of input texts to embed
             batch_size: Number of texts to process per batch (default: 32)
+            is_query: If True, apply query prefix; else apply document prefix
 
         Returns:
             List of embedding vectors
@@ -259,7 +359,7 @@ class OllamaClient:
 
                 # Generate embeddings for each text in the batch
                 for text in batch:
-                    embedding = self.embed(text)
+                    embedding = self.embed(text, is_query=is_query)
                     embeddings.append(embedding)
 
             return embeddings

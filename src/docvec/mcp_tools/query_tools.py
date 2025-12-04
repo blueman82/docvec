@@ -322,7 +322,11 @@ class QueryTools:
             raise QueryError(f"Unexpected error during budget search: {e}") from e
 
     def _embed_query(self, query: str) -> list[float]:
-        """Embed a query string using Ollama.
+        """Embed a query string using Ollama with model-specific prefix.
+
+        Uses embed_query() which automatically applies the correct prefix
+        for the embedding model (e.g., mxbai-embed-large requires
+        "Represent this sentence for searching relevant passages: ").
 
         Args:
             query: Query text to embed
@@ -333,7 +337,7 @@ class QueryTools:
         Raises:
             EmbeddingError: If embedding fails
         """
-        return self._embedder.embed(query)
+        return self._embedder.embed_query(query)
 
     def _format_results(self, raw_results: dict) -> list[QueryResult]:
         """Format raw ChromaDB results into QueryResult objects.

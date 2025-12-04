@@ -164,9 +164,52 @@ class TestOllamaClient:
         mock_post.assert_called_once()
 
         # Verify request payload
+        # Note: nomic-embed-text adds "search_document: " prefix for documents
         call_args = mock_post.call_args
         assert call_args[1]["json"]["model"] == "nomic-embed-text"
-        assert call_args[1]["json"]["prompt"] == "Hello world"
+        assert call_args[1]["json"]["prompt"] == "search_document: Hello world"
+
+    @patch("requests.Session.post")
+    def test_embed_query_with_prefix(self, mock_post):
+        """Test query embedding adds model-specific prefix."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+        mock_post.return_value = mock_response
+
+        # Test nomic-embed-text query prefix
+        client = OllamaClient(model="nomic-embed-text")
+        client.embed_query("What is Python?")
+        call_args = mock_post.call_args
+        assert call_args[1]["json"]["prompt"] == "search_query: What is Python?"
+
+    @patch("requests.Session.post")
+    def test_embed_query_mxbai_prefix(self, mock_post):
+        """Test mxbai-embed-large query prefix."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+        mock_post.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        client.embed_query("What is Python?")
+        call_args = mock_post.call_args
+        expected_prefix = "Represent this sentence for searching relevant passages: "
+        assert call_args[1]["json"]["prompt"] == f"{expected_prefix}What is Python?"
+
+    @patch("requests.Session.post")
+    def test_embed_document_mxbai_no_prefix(self, mock_post):
+        """Test mxbai-embed-large document embedding has no prefix."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+        mock_post.return_value = mock_response
+
+        client = OllamaClient(model="mxbai-embed-large")
+        client.embed_document("Python is a programming language.")
+        call_args = mock_post.call_args
+        # mxbai has no document prefix
+        assert call_args[1]["json"]["prompt"] == "Python is a programming language."
 
     def test_embed_empty_text(self):
         """Test embedding with empty text raises ValueError."""

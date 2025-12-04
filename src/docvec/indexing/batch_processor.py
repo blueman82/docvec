@@ -202,19 +202,34 @@ class BatchProcessor:
         return sorted(file_paths)
 
     def _is_duplicate(self, file_path: Path, file_hash: str) -> bool:
-        """Check if document hash exists in storage.
+        """Check if document is already indexed with same content.
 
-        Queries storage for existing documents with the same hash.
-        Uses storage's get_by_hash method for efficient lookup.
+        If file is indexed but content changed (different hash), deletes old
+        chunks and returns False to trigger re-indexing.
 
         Args:
-            file_path: Path to file (used for logging)
+            file_path: Path to file to check
             file_hash: SHA-256 hash of file content
 
         Returns:
-            True if duplicate found, False otherwise
+            True if already indexed with same content, False otherwise
         """
         try:
+            # Check if this file path is already indexed
+            existing = self.storage.get_by_source_file(str(file_path))
+            if existing is not None:
+                # File is indexed - check if content changed
+                existing_hash = existing["metadatas"][0].get("doc_hash") if existing["metadatas"] else None
+                if existing_hash == file_hash:
+                    # Same content, skip
+                    return True
+                else:
+                    # Content changed - delete old chunks, re-index
+                    logger.info(f"Content changed, re-indexing: {file_path}")
+                    self.storage.delete_by_source_file(str(file_path))
+                    return False
+
+            # Check if same content exists under different path (content duplicate)
             result = self.storage.get_by_hash(file_hash)
             return result is not None
 
