@@ -89,11 +89,6 @@ class TestBatchProcessorInitialization:
         assert processor.hasher == mock_hasher
         assert processor.storage == mock_storage
 
-    def test_supported_extensions(self, processor):
-        """Test that supported extensions are correctly set."""
-        expected = {".md", ".pdf", ".txt", ".py"}
-        assert processor.supported_extensions == expected
-
 
 class TestBatchResult:
     """Test BatchResult dataclass."""
@@ -129,16 +124,15 @@ class TestBatchProcessorFileDiscovery:
         """Test finding files recursively."""
         files = processor._find_files(temp_docs_dir, recursive=True)
 
-        # Should find all supported files including nested
+        # Should find all files including nested (extension-agnostic)
         file_names = {Path(f).name for f in files}
         assert "file1.txt" in file_names
         assert "file2.md" in file_names
         assert "file3.py" in file_names
         assert "README.md" in file_names
         assert "nested.txt" in file_names
-
-        # Should not include unsupported files
-        assert "image.png" not in file_names
+        # Now includes all file types (extension-agnostic)
+        assert "image.png" in file_names
 
     def test_find_files_non_recursive(self, processor, temp_docs_dir):
         """Test finding files in single directory only."""
@@ -148,6 +142,8 @@ class TestBatchProcessorFileDiscovery:
         assert "file1.txt" in file_names
         assert "file2.md" in file_names
         assert "README.md" in file_names
+        # Includes all extensions now
+        assert "image.png" in file_names
 
         # Should not include nested files
         assert "nested.txt" not in file_names
@@ -168,16 +164,42 @@ class TestBatchProcessorFileDiscovery:
         files = processor._find_files(empty_dir, recursive=True)
         assert files == []
 
-    def test_find_files_only_unsupported(self, processor, tmp_path):
-        """Test directory with only unsupported files."""
-        dir_path = tmp_path / "unsupported"
+    def test_find_files_excludes_hidden(self, processor, tmp_path):
+        """Test that hidden files (starting with .) are excluded."""
+        dir_path = tmp_path / "with_hidden"
         dir_path.mkdir()
 
-        (dir_path / "image1.png").write_bytes(b"data")
-        (dir_path / "image2.jpg").write_bytes(b"data")
+        (dir_path / "visible.txt").write_text("visible")
+        (dir_path / ".hidden").write_text("hidden")
+        (dir_path / ".gitignore").write_text("ignored")
 
         files = processor._find_files(dir_path, recursive=True)
-        assert files == []
+        file_names = {Path(f).name for f in files}
+
+        assert "visible.txt" in file_names
+        assert ".hidden" not in file_names
+        assert ".gitignore" not in file_names
+
+    def test_find_files_any_extension(self, processor, tmp_path):
+        """Test that any file extension is discovered (extension-agnostic)."""
+        dir_path = tmp_path / "various"
+        dir_path.mkdir()
+
+        # Create files with various extensions
+        (dir_path / "code.ts").write_text("typescript")
+        (dir_path / "code.js").write_text("javascript")
+        (dir_path / "data.json").write_text("{}")
+        (dir_path / "config.yaml").write_text("key: value")
+        (dir_path / "readme.rst").write_text("rst doc")
+
+        files = processor._find_files(dir_path, recursive=True)
+        file_names = {Path(f).name for f in files}
+
+        assert "code.ts" in file_names
+        assert "code.js" in file_names
+        assert "data.json" in file_names
+        assert "config.yaml" in file_names
+        assert "readme.rst" in file_names
 
 
 class TestBatchProcessorDeduplication:
@@ -417,8 +439,8 @@ class TestBatchProcessorProcessDirectory:
         """Test processing directory recursively."""
         result = processor.process_directory(temp_docs_dir, recursive=True)
 
-        # Should process all 5 supported files (4 in root + 1 nested)
-        assert result.new_documents == 5
+        # Should process all 6 files (5 in root + 1 nested) - extension-agnostic
+        assert result.new_documents == 6
         assert result.duplicates_skipped == 0
         assert len(result.errors) == 0
 
@@ -426,8 +448,8 @@ class TestBatchProcessorProcessDirectory:
         """Test processing directory non-recursively."""
         result = processor.process_directory(temp_docs_dir, recursive=False)
 
-        # Should process only 4 files in root (not nested)
-        assert result.new_documents == 4
+        # Should process only 5 files in root (not nested) - extension-agnostic
+        assert result.new_documents == 5
         assert result.duplicates_skipped == 0
 
     def test_process_directory_nonexistent(self, processor):
@@ -469,8 +491,8 @@ class TestBatchProcessorProcessDirectory:
 
         result = processor.process_directory(temp_docs_dir, recursive=False)
 
-        # 4 files total, 2 duplicates, 2 new
-        assert result.new_documents == 2
+        # 5 files total (extension-agnostic), 2 duplicates, 3 new
+        assert result.new_documents == 3
         assert result.duplicates_skipped == 2
 
     def test_process_directory_with_errors(
@@ -488,8 +510,8 @@ class TestBatchProcessorProcessDirectory:
 
         result = processor.process_directory(temp_docs_dir, recursive=False)
 
-        # 4 files, 1 error, 3 success
-        assert result.new_documents == 3
+        # 5 files (extension-agnostic), 1 error, 4 success
+        assert result.new_documents == 4
         assert len(result.errors) == 1
 
 

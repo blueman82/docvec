@@ -37,9 +37,13 @@ class BatchResult:
 class BatchProcessor:
     """Batch document processor with hash-based deduplication.
 
-    Scans directories for supported files, checks for duplicates using
+    Scans directories for files, checks for duplicates using
     document hashes, and indexes only new files. Provides detailed
     statistics and error reporting.
+
+    The processor is extension-agnostic: any text-based file can be indexed.
+    Specialized chunkers are used for known formats (.md, .pdf, .py),
+    while unknown extensions fall back to a generic text chunker.
 
     Args:
         indexer: Indexer instance for document processing
@@ -50,7 +54,6 @@ class BatchProcessor:
         indexer: Document indexer
         hasher: Document hasher
         storage: Vector storage
-        supported_extensions: Set of file extensions to process
 
     Example:
         >>> processor = BatchProcessor(indexer, hasher, storage)
@@ -75,9 +78,6 @@ class BatchProcessor:
         self.indexer = indexer
         self.hasher = hasher
         self.storage = storage
-
-        # Supported file extensions (must match indexer's capabilities)
-        self.supported_extensions = {".md", ".pdf", ".txt", ".py"}
 
     def process_directory(self, dir_path: Path, recursive: bool = True) -> BatchResult:
         """Process all supported files in a directory.
@@ -174,32 +174,32 @@ class BatchProcessor:
         return result
 
     def _find_files(self, dir_path: Path, recursive: bool) -> list[str]:
-        """Find all supported files in directory.
+        """Find all files in directory.
 
-        Uses glob patterns to find files with supported extensions.
-        Supports both recursive and single-level scanning.
+        Discovers all files for indexing. The system is extension-agnostic:
+        specialized chunkers handle known formats (.md, .pdf, .py), while
+        unknown extensions use a generic text chunker. Binary files that
+        cannot be read as text will fail gracefully during indexing.
 
         Args:
             dir_path: Directory to scan
             recursive: If True, scan recursively
 
         Returns:
-            List of file paths with supported extensions
+            List of file paths (sorted for deterministic processing)
         """
-        file_paths: list[str] = []
+        if recursive:
+            # Recursive search: all files in all subdirectories
+            files = [p for p in dir_path.rglob("*") if p.is_file()]
+        else:
+            # Single-level search: files in this directory only
+            files = [p for p in dir_path.iterdir() if p.is_file()]
 
-        for ext in self.supported_extensions:
-            if recursive:
-                # Recursive search: **/*.ext
-                pattern = f"**/*{ext}"
-                file_paths.extend(str(p) for p in dir_path.glob(pattern))
-            else:
-                # Single-level search: *.ext
-                pattern = f"*{ext}"
-                file_paths.extend(str(p) for p in dir_path.glob(pattern))
+        # Filter out hidden files (starting with .)
+        files = [f for f in files if not f.name.startswith(".")]
 
         # Sort for deterministic processing order
-        return sorted(file_paths)
+        return sorted(str(p) for p in files)
 
     def _is_duplicate(self, file_path: Path, file_hash: str) -> bool:
         """Check if document is already indexed with same content.
