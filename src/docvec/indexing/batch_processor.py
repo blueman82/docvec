@@ -127,10 +127,10 @@ class BatchProcessor:
         return result
 
     def process_files(self, file_paths: list[Path]) -> BatchResult:
-        """Process a list of files with deduplication.
+        """Process a list of files with deduplication and cross-file batching.
 
-        Hashes each file, checks for duplicates, and indexes only new files.
-        Continues processing even if individual files fail.
+        Uses an accumulator pattern to batch chunks from multiple files
+        before embedding, reducing MLX/GPU round-trips significantly.
 
         Args:
             file_paths: List of file paths to process
@@ -146,6 +146,45 @@ class BatchProcessor:
         """
         result = BatchResult()
 
+        # Accumulator for cross-file batching
+        chunk_accumulator: list[Chunk] = []
+        # Track which file each chunk came from (for result reporting)
+        chunk_file_map: list[str] = []
+        # Track files that contributed chunks (for new_documents count)
+        files_with_chunks: set[str] = set()
+
+        # Use indexer's batch_size for accumulator threshold
+        batch_threshold = self.indexer.batch_size
+
+        def flush_accumulator() -> None:
+            """Embed and store accumulated chunks."""
+            nonlocal chunk_accumulator, chunk_file_map
+
+            if not chunk_accumulator:
+                return
+
+            logger.info(f"Flushing batch of {len(chunk_accumulator)} chunks")
+
+            try:
+                chunk_ids = self.indexer.embed_and_store_chunks(chunk_accumulator)
+
+                # Map chunk IDs back to source files
+                for chunk_id, source_file in zip(chunk_ids, chunk_file_map):
+                    if source_file not in result.chunk_ids:
+                        result.chunk_ids[source_file] = []
+                    result.chunk_ids[source_file].append(chunk_id)
+
+            except IndexingError as e:
+                logger.error(f"Failed to embed/store batch: {e}")
+                # Record error for all files in this batch
+                for source_file in set(chunk_file_map):
+                    if source_file not in [err[0] for err in result.errors]:
+                        result.errors.append((source_file, str(e)))
+
+            # Clear accumulator
+            chunk_accumulator = []
+            chunk_file_map = []
+
         for file_path in file_paths:
             try:
                 # Hash the file
@@ -157,20 +196,41 @@ class BatchProcessor:
                     result.duplicates_skipped += 1
                     continue
 
-                # Process single file
-                chunk_ids = self._process_single_file(file_path, file_hash)
+                # Chunk the file (without embedding)
+                chunks = self.indexer.chunk_file(file_path)
 
-                if chunk_ids:
-                    result.new_documents += 1
-                    result.chunk_ids[str(file_path)] = chunk_ids
-                    logger.info(
-                        f"Indexed {file_path.name} with {len(chunk_ids)} chunks"
-                    )
+                if not chunks:
+                    logger.warning(f"No chunks generated from {file_path}")
+                    continue
+
+                # Add chunks to accumulator
+                for chunk in chunks:
+                    chunk_accumulator.append(chunk)
+                    chunk_file_map.append(str(file_path))
+
+                files_with_chunks.add(str(file_path))
+                logger.info(f"Chunked {file_path.name}: {len(chunks)} chunks (accumulator: {len(chunk_accumulator)})")
+
+                # Flush if accumulator is full
+                if len(chunk_accumulator) >= batch_threshold:
+                    flush_accumulator()
 
             except Exception as e:
                 error_msg = str(e)
                 result.errors.append((str(file_path), error_msg))
                 logger.error(f"Failed to process {file_path}: {error_msg}")
+
+        # Flush remaining chunks
+        flush_accumulator()
+
+        # Count new documents (files that had chunks successfully stored)
+        for file_path_str in files_with_chunks:
+            if file_path_str in result.chunk_ids and result.chunk_ids[file_path_str]:
+                result.new_documents += 1
+                logger.info(
+                    f"Indexed {Path(file_path_str).name} with "
+                    f"{len(result.chunk_ids[file_path_str])} chunks"
+                )
 
         return result
 
