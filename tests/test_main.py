@@ -41,7 +41,7 @@ class TestArgumentParsing:
 
             # Indexing defaults
             assert args.chunk_size == 512
-            assert args.batch_size == 32
+            assert args.batch_size == 128
             assert args.max_tokens == 512
 
             # Logging defaults
