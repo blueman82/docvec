@@ -58,8 +58,11 @@ class ChromaStore:
             # Ensure database directory exists
             self.db_path.mkdir(parents=True, exist_ok=True)
 
-            # Initialize persistent ChromaDB client
-            self._client = chromadb.PersistentClient(path=str(self.db_path))
+            # Initialize persistent ChromaDB client with telemetry disabled
+            self._client = chromadb.PersistentClient(
+                path=str(self.db_path),
+                settings=Settings(anonymized_telemetry=False),
+            )
 
             # Get or create collection
             self._collection = self._get_or_create_collection()
