@@ -13,6 +13,7 @@ from typing import Optional
 
 import chromadb
 from chromadb.api.models.Collection import Collection
+from chromadb.config import Settings
 
 
 class StorageError(Exception):
