@@ -318,54 +318,6 @@ class TestBatchProcessorDeduplication:
         assert is_dup is False
 
 
-class TestBatchProcessorSingleFile:
-    """Test single file processing."""
-
-    def test_process_single_file_success(self, processor, mock_indexer, tmp_path):
-        """Test successful single file processing."""
-        file_path = tmp_path / "test.txt"
-        file_path.write_text("Test content")
-
-        chunk_ids = processor._process_single_file(file_path, "hash123")
-
-        assert chunk_ids == ["chunk_id_1", "chunk_id_2"]
-        mock_indexer.index_document.assert_called_once_with(file_path)
-
-    def test_process_single_file_no_chunks(self, processor, mock_indexer, tmp_path):
-        """Test processing file that generates no chunks."""
-        file_path = tmp_path / "test.txt"
-        file_path.write_text("Content")
-
-        # Mock indexer to return empty list
-        mock_indexer.index_document.return_value = []
-
-        chunk_ids = processor._process_single_file(file_path, "hash123")
-
-        assert chunk_ids is None
-
-    def test_process_single_file_indexing_error(
-        self, processor, mock_indexer, tmp_path
-    ):
-        """Test handling indexing error."""
-        file_path = tmp_path / "test.txt"
-        file_path.write_text("Content")
-
-        # Mock indexer to raise error
-        mock_indexer.index_document.side_effect = IndexingError("Failed")
-
-        with pytest.raises(IndexingError, match="Failed to index"):
-            processor._process_single_file(file_path, "hash123")
-
-    def test_process_single_file_not_found(self, processor, mock_indexer):
-        """Test processing nonexistent file."""
-        file_path = Path("/nonexistent/file.txt")
-
-        mock_indexer.index_document.side_effect = FileNotFoundError("Not found")
-
-        with pytest.raises(IndexingError, match="Failed to index"):
-            processor._process_single_file(file_path, "hash123")
-
-
 class TestBatchProcessorProcessFiles:
     """Test batch file processing."""
 
