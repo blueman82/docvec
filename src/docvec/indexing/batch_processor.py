@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from docvec.chunking.base import Chunk
 from docvec.deduplication.hasher import DocumentHasher
 from docvec.indexing.indexer import Indexer, IndexingError
 from docvec.storage.chroma_store import ChromaStore, StorageError
