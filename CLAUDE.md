@@ -180,7 +180,7 @@ For full API specifications including input/output schemas, examples, and error 
 
 **Batch Processing**: Embeddings generated in configurable batches
 - Reduces API calls to Ollama
-- Default batch_size=32 in Indexer
+- Default batch_size=128 in Indexer
 - Trade-off: memory usage vs API efficiency
 
 **Hash-Based Deduplication**: SHA-256 hashes stored in metadata
