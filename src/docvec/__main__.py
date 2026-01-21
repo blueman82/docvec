@@ -148,7 +148,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=int(os.environ.get("DOCVEC_BATCH_SIZE", "32")),
+        default=int(os.environ.get("DOCVEC_BATCH_SIZE", "128")),
         help="Batch size for embedding generation",
     )
     parser.add_argument(
