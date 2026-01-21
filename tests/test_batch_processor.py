@@ -482,14 +482,16 @@ class TestBatchProcessorProcessDirectory:
         self, processor, mock_indexer, temp_docs_dir
     ):
         """Test directory processing with some errors."""
+        # Get the original chunk_file side effect
+        original_side_effect = mock_indexer.chunk_file.side_effect
 
-        # Mock indexer to fail on specific files
-        def index_side_effect(file_path):
+        # Mock chunk_file to fail on specific files
+        def chunk_side_effect(file_path):
             if file_path.name == "file1.txt":
-                raise IndexingError("Failed")
-            return ["chunk_id_1", "chunk_id_2"]
+                raise IndexingError("Failed to chunk")
+            return original_side_effect(file_path)
 
-        mock_indexer.index_document.side_effect = index_side_effect
+        mock_indexer.chunk_file.side_effect = chunk_side_effect
 
         result = processor.process_directory(temp_docs_dir, recursive=False)
 
