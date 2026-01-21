@@ -152,10 +152,10 @@ class TestComponentInitialization:
     @patch("docvec.__main__.Indexer")
     @patch("docvec.__main__.DocumentHasher")
     @patch("docvec.__main__.ChromaStore")
-    @patch("docvec.__main__.OllamaClient")
+    @patch("docvec.__main__.create_embedding_provider")
     def test_initialize_components_dependency_order(
         self,
-        mock_ollama,
+        mock_factory,
         mock_chroma,
         mock_hasher,
         mock_indexer,
@@ -165,9 +165,8 @@ class TestComponentInitialization:
     ):
         """Test that components are initialized in correct dependency order."""
         # Setup mocks
-        mock_ollama_instance = Mock()
-        mock_ollama_instance.ensure_model.return_value = True
-        mock_ollama.return_value = mock_ollama_instance
+        mock_embedder = Mock()
+        mock_factory.return_value = mock_embedder
 
         mock_chroma_instance = Mock()
         mock_chroma.return_value = mock_chroma_instance
@@ -187,8 +186,10 @@ class TestComponentInitialization:
         mock_query_instance = Mock()
         mock_query_tools.return_value = mock_query_instance
 
-        # Create args
+        # Create args (MLX is default backend)
         args = argparse.Namespace(
+            embedding_backend="mlx",
+            mlx_model="mlx-community/mxbai-embed-large-v1",
             host="http://localhost:11434",
             model="nomic-embed-text",
             timeout=30,
@@ -211,11 +212,13 @@ class TestComponentInitialization:
         assert "indexing_tools" in components
         assert "query_tools" in components
 
-        # Verify OllamaClient was initialized correctly
-        mock_ollama.assert_called_once_with(
+        # Verify create_embedding_provider was called correctly
+        mock_factory.assert_called_once_with(
+            backend="mlx",
             host="http://localhost:11434",
             model="nomic-embed-text",
             timeout=30,
+            mlx_model="mlx-community/mxbai-embed-large-v1",
         )
 
         # Verify ChromaStore was initialized correctly
@@ -225,7 +228,7 @@ class TestComponentInitialization:
 
         # Verify Indexer was initialized with correct dependencies
         mock_indexer.assert_called_once_with(
-            embedder=mock_ollama_instance,
+            embedder=mock_embedder,
             storage=mock_chroma_instance,
             chunk_size=512,
             batch_size=32,
@@ -247,19 +250,21 @@ class TestComponentInitialization:
 
         # Verify QueryTools dependencies
         mock_query_tools.assert_called_once_with(
-            embedder=mock_ollama_instance,
+            embedder=mock_embedder,
             storage=mock_chroma_instance,
         )
 
-    @patch("docvec.__main__.OllamaClient")
-    def test_initialize_components_ensure_model_failure_raises(self, mock_ollama):
-        """Test that ensure_model failure raises RuntimeError."""
+    @patch("docvec.__main__.create_embedding_provider")
+    def test_initialize_components_ensure_model_failure_raises(self, mock_factory):
+        """Test that ensure_model failure raises RuntimeError (Ollama backend only)."""
         # Setup mock to fail ensure_model (model not available and can't pull)
-        mock_ollama_instance = Mock()
-        mock_ollama_instance.ensure_model.return_value = False
-        mock_ollama.return_value = mock_ollama_instance
+        mock_embedder = Mock()
+        mock_embedder.ensure_model.return_value = False
+        mock_factory.return_value = mock_embedder
 
         args = argparse.Namespace(
+            embedding_backend="ollama",
+            mlx_model="mlx-community/mxbai-embed-large-v1",
             host="http://localhost:11434",
             model="nonexistent-model",
             timeout=30,
@@ -274,13 +279,15 @@ class TestComponentInitialization:
         with pytest.raises(RuntimeError, match="could not be loaded or pulled"):
             initialize_components(args)
 
-    @patch("docvec.__main__.OllamaClient")
-    def test_initialize_components_failure_raises_exception(self, mock_ollama):
+    @patch("docvec.__main__.create_embedding_provider")
+    def test_initialize_components_failure_raises_exception(self, mock_factory):
         """Test that initialization failure raises exception."""
-        # Make OllamaClient raise an exception
-        mock_ollama.side_effect = Exception("Initialization failed")
+        # Make create_embedding_provider raise an exception
+        mock_factory.side_effect = Exception("Initialization failed")
 
         args = argparse.Namespace(
+            embedding_backend="mlx",
+            mlx_model="mlx-community/mxbai-embed-large-v1",
             host="http://localhost:11434",
             model="nomic-embed-text",
             timeout=30,

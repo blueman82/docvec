@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DocVec - A Model Context Protocol server that provides semantic document indexing and retrieval using ChromaDB and local Ollama embeddings. The system is designed to reduce token usage in Claude conversations by efficiently retrieving only relevant document chunks.
+DocVec - A Model Context Protocol server that provides semantic document indexing and retrieval using ChromaDB and local embeddings. The system is designed to reduce token usage in Claude conversations by efficiently retrieving only relevant document chunks.
 
 **Core Principles**:
-- Local-first processing using Ollama embeddings
+- Local-first processing using MLX embeddings (default) or Ollama
 - Privacy-preserving (no external API calls)
 - Token-efficient retrieval
+- Apple Silicon optimized (MLX backend)
 
 ## Development Commands
 
@@ -18,12 +19,15 @@ DocVec - A Model Context Protocol server that provides semantic document indexin
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
+# Install dependencies (includes mlx-embeddings for Apple Silicon)
 uv sync
 
-# Start Ollama and pull embedding model
+# MLX backend (default) - no additional setup needed on Apple Silicon
+# The model is auto-downloaded on first use
+
+# Ollama backend (alternative) - requires Ollama server
 ollama serve &  # if not already running
-ollama pull mxbai-embed-large  # or nomic-embed-text
+ollama pull nomic-embed-text  # or mxbai-embed-large
 ```
 
 ### Testing
@@ -43,11 +47,17 @@ uv run pytest tests/test_integration.py -v
 
 ### Running the MCP Server
 ```bash
-# Run with default configuration
+# Run with default configuration (MLX backend)
 uv run python -m docvec
 
-# Run with custom configuration
-uv run python -m docvec --host http://localhost:11434 --model nomic-embed-text --db-path ./my_chroma_db --log-level DEBUG
+# Run with Ollama backend instead
+uv run python -m docvec --embedding-backend ollama
+
+# Run with custom MLX model
+uv run python -m docvec --mlx-model mlx-community/mxbai-embed-large-v1
+
+# Run with custom Ollama configuration
+uv run python -m docvec --embedding-backend ollama --host http://localhost:11434 --model nomic-embed-text
 
 # View available CLI options
 uv run python -m docvec --help
@@ -108,7 +118,10 @@ The system follows a layered architecture with clear separation of concerns:
 Split chunks include `split_part` metadata for tracking.
 
 **Layer 5: Services**
+- `embedding/provider.py`: EmbeddingProvider protocol for pluggable backends
+- `embedding/mlx_provider.py`: MLX embedding provider (Apple Silicon, default)
 - `embedding/ollama_client.py`: Ollama API client with retry logic
+- `embedding/factory.py`: Factory function for creating embedding providers
 - `storage/chroma_store.py`: ChromaDB wrapper for vector storage
 - `deduplication/hasher.py`: SHA-256 document hashing
 
@@ -119,11 +132,11 @@ Split chunks include `split_part` metadata for tracking.
 2. File extension → Appropriate chunker selected
 3. Content → Chunker splits into Chunk objects
 4. Chunks → Validated against token limits
-5. Chunk texts → Batched and sent to OllamaClient for embeddings
+5. Chunk texts → Batched and sent to EmbeddingProvider for embeddings
 6. Chunks + Embeddings → Stored in ChromaStore with metadata
 
 **Query Pipeline**:
-1. Query text → Embedded via OllamaClient
+1. Query text → Embedded via EmbeddingProvider (with query prefix)
 2. Query embedding → ChromaStore performs cosine similarity search
 3. Results → Filtered by metadata if specified
 4. Results → Token budget enforcement (if budget specified)
@@ -187,7 +200,7 @@ For full API specifications including input/output schemas, examples, and error 
 
 ### Component Initialization Order
 The initialization sequence in `initialize_components()` follows the dependency graph:
-1. OllamaClient (no dependencies)
+1. EmbeddingProvider via factory (MLX or Ollama based on config)
 2. ChromaStore (no dependencies)
 3. ManagementTools (depends on storage)
 4. DocumentHasher (no dependencies)
@@ -272,14 +285,16 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 
 | Environment Variable | CLI Argument | Default | Description |
 |----------|----------|---------|-------------|
-| `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
+| `DOCVEC_EMBEDDING_BACKEND` | `--embedding-backend` | `mlx` | Embedding backend (`mlx` or `ollama`) |
+| `DOCVEC_MLX_MODEL` | `--mlx-model` | `mlx-community/mxbai-embed-large-v1` | MLX embedding model (HuggingFace path) |
 | `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
-| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
+| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Ollama embedding model name |
 | `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
+| `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
+| `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `512` | Maximum tokens per chunk |
 | `DOCVEC_BATCH_SIZE` | `--batch-size` | `32` | Batch size for embedding generation |
 | `DOCVEC_MAX_TOKENS` | `--max-tokens` | `512` | Maximum tokens per chunk for embedding model limits |
-| `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
 CLI arguments take precedence over environment variables. All configuration is parsed in `parse_arguments()` in `__main__.py`.
