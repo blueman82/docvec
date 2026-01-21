@@ -186,6 +186,64 @@ class Indexer:
 
         return results
 
+    def chunk_file(self, file_path: Path) -> list[Chunk]:
+        """Chunk a file without embedding.
+
+        Use this method to collect chunks from multiple files before
+        batch embedding with embed_and_store_chunks().
+
+        Args:
+            file_path: Path to document to chunk
+
+        Returns:
+            List of validated Chunk objects
+
+        Raises:
+            IndexingError: If chunking fails
+            FileNotFoundError: If file doesn't exist
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        if not file_path.is_file():
+            raise IndexingError(f"Path is not a file: {file_path}")
+
+        try:
+            content = self._load_file(file_path)
+            chunker = self._select_chunker(file_path)
+            chunks = chunker.chunk(content, str(file_path))
+            return self._validate_chunks(chunks)
+        except Exception as e:
+            raise IndexingError(f"Failed to chunk {file_path}: {e}") from e
+
+    def embed_and_store_chunks(self, chunks: list[Chunk]) -> list[str]:
+        """Embed and store pre-chunked documents.
+
+        Use this method after collecting chunks from multiple files
+        via chunk_file() for efficient cross-file batch embedding.
+
+        Args:
+            chunks: List of Chunk objects from one or more files
+
+        Returns:
+            List of chunk IDs generated during storage
+
+        Raises:
+            IndexingError: If embedding or storage fails
+        """
+        if not chunks:
+            return []
+
+        logger.info(f"Embedding and storing {len(chunks)} chunks from batch")
+
+        try:
+            embeddings = self._embed_chunks(chunks)
+            chunk_ids = self._store_chunks(chunks, embeddings)
+            logger.info(f"Successfully stored {len(chunk_ids)} chunks from batch")
+            return chunk_ids
+        except (EmbeddingError, StorageError) as e:
+            raise IndexingError(f"Failed to embed/store batch: {e}") from e
+
     def _load_file(self, file_path: Path) -> str:
         """Load file content.
 
