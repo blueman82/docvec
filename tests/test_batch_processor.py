@@ -370,13 +370,15 @@ class TestBatchProcessorProcessFiles:
         file2 = tmp_path / "file2.txt"
         file2.write_text("Content 2")
 
-        # Mock indexer to fail on file1
-        def index_side_effect(file_path):
-            if file_path.name == "file1.txt":
-                raise IndexingError("Failed to index")
-            return ["chunk_id_1", "chunk_id_2"]
+        # Mock chunk_file to fail on file1
+        original_side_effect = mock_indexer.chunk_file.side_effect
 
-        mock_indexer.index_document.side_effect = index_side_effect
+        def chunk_side_effect(file_path):
+            if file_path.name == "file1.txt":
+                raise IndexingError("Failed to chunk")
+            return original_side_effect(file_path)
+
+        mock_indexer.chunk_file.side_effect = chunk_side_effect
 
         result = processor.process_files([file1, file2])
 
@@ -384,7 +386,7 @@ class TestBatchProcessorProcessFiles:
         assert result.duplicates_skipped == 0
         assert len(result.errors) == 1
         assert result.errors[0][0] == str(file1)
-        assert "Failed to index" in result.errors[0][1]
+        assert "Failed to chunk" in result.errors[0][1]
 
     def test_process_files_empty_list(self, processor):
         """Test processing empty file list."""
