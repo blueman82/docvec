@@ -14,6 +14,35 @@ from docvec.indexing.indexer import IndexingError
 def mock_indexer():
     """Provide mock Indexer."""
     indexer = Mock()
+    # Mock batch_size for accumulator threshold
+    indexer.batch_size = 32
+
+    # Mock chunk_file to return fake Chunk objects
+    def chunk_file_side_effect(file_path):
+        # Return 2 mock chunks per file
+        chunk1 = Mock()
+        chunk1.content = f"Content from {file_path.name} chunk 1"
+        chunk1.source_file = str(file_path)
+        chunk1.chunk_index = 0
+        chunk1.metadata = {}
+
+        chunk2 = Mock()
+        chunk2.content = f"Content from {file_path.name} chunk 2"
+        chunk2.source_file = str(file_path)
+        chunk2.chunk_index = 1
+        chunk2.metadata = {}
+
+        return [chunk1, chunk2]
+
+    indexer.chunk_file.side_effect = chunk_file_side_effect
+
+    # Mock embed_and_store_chunks to return chunk IDs
+    def embed_store_side_effect(chunks):
+        return [f"chunk_id_{i}" for i in range(len(chunks))]
+
+    indexer.embed_and_store_chunks.side_effect = embed_store_side_effect
+
+    # Keep index_document for backwards compatibility tests
     indexer.index_document.return_value = ["chunk_id_1", "chunk_id_2"]
     return indexer
 
