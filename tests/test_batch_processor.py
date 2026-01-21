@@ -405,8 +405,8 @@ class TestBatchProcessorProcessFiles:
         file2 = tmp_path / "file2.txt"
         file2.write_text("Content 2")
 
-        # Mock indexer to always fail
-        mock_indexer.index_document.side_effect = IndexingError("Failed")
+        # Mock chunk_file to always fail
+        mock_indexer.chunk_file.side_effect = IndexingError("Failed to chunk")
 
         result = processor.process_files([file1, file2])
 
