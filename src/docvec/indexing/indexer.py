@@ -17,7 +17,8 @@ from docvec.chunking.code_chunker import CodeChunker
 from docvec.chunking.markdown_chunker import MarkdownChunker
 from docvec.chunking.pdf_chunker import PDFChunker
 from docvec.chunking.text_chunker import TextChunker
-from docvec.embedding.ollama_client import OllamaClient, EmbeddingError
+from docvec.embedding.ollama_client import EmbeddingError
+from docvec.embedding.provider import EmbeddingProvider
 from docvec.storage.chroma_store import ChromaStore, StorageError
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class Indexer:
 
     def __init__(
         self,
-        embedder: OllamaClient,
+        embedder: EmbeddingProvider,
         storage: ChromaStore,
         chunk_size: int = 512,
         batch_size: int = 32,
@@ -62,7 +63,7 @@ class Indexer:
         """Initialize indexer with dependencies.
 
         Args:
-            embedder: Ollama embedding client
+            embedder: Embedding provider (MLX or Ollama)
             storage: ChromaDB storage instance
             chunk_size: Maximum tokens per chunk
             batch_size: Batch size for embedding calls

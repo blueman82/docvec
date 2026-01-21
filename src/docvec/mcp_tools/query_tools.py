@@ -10,7 +10,8 @@ This module provides query tools that embed user queries and search ChromaDB wit
 from dataclasses import dataclass
 from typing import Optional
 
-from docvec.embedding.ollama_client import EmbeddingError, OllamaClient
+from docvec.embedding.ollama_client import EmbeddingError
+from docvec.embedding.provider import EmbeddingProvider
 from docvec.storage.chroma_store import ChromaStore, StorageError
 
 
@@ -98,14 +99,14 @@ class QueryTools:
 
     def __init__(
         self,
-        embedder: OllamaClient,
+        embedder: EmbeddingProvider,
         storage: ChromaStore,
         counter: Optional[TokenCounter] = None,
     ):
         """Initialize query tools with dependencies.
 
         Args:
-            embedder: OllamaClient for query embedding
+            embedder: Embedding provider for query embedding (MLX or Ollama)
             storage: ChromaStore for vector search
             counter: Optional TokenCounter (defaults to TokenCounter())
         """

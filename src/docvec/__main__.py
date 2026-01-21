@@ -29,7 +29,7 @@ from typing import Any, Optional
 from mcp.server.fastmcp import FastMCP
 
 from docvec.deduplication.hasher import DocumentHasher
-from docvec.embedding.ollama_client import OllamaClient
+from docvec.embedding import create_embedding_provider
 from docvec.indexing.batch_processor import BatchProcessor
 from docvec.indexing.indexer import Indexer
 from docvec.mcp_tools.indexing_tools import IndexingTools
@@ -87,7 +87,24 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Ollama configuration
+    # Embedding backend configuration
+    parser.add_argument(
+        "--embedding-backend",
+        type=str,
+        default=os.environ.get("DOCVEC_EMBEDDING_BACKEND", "mlx"),
+        choices=["mlx", "ollama"],
+        help="Embedding backend to use ('mlx' for Apple Silicon, 'ollama' for server)",
+    )
+    parser.add_argument(
+        "--mlx-model",
+        type=str,
+        default=os.environ.get(
+            "DOCVEC_MLX_MODEL", "mlx-community/mxbai-embed-large-v1"
+        ),
+        help="MLX embedding model (HuggingFace path)",
+    )
+
+    # Ollama configuration (used when --embedding-backend=ollama)
     parser.add_argument(
         "--host",
         type=str,
@@ -158,7 +175,7 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
 
     Initialization order follows dependency graph:
     1. Configuration (parsed arguments)
-    2. Services: OllamaClient, ChromaStore, DocumentHasher
+    2. Services: EmbeddingProvider (MLX or Ollama), ChromaStore, DocumentHasher
     3. Processors: Indexer, BatchProcessor
     4. Tools: IndexingTools, QueryTools
 
@@ -175,21 +192,26 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
     components: dict[str, Any] = {}
 
     try:
-        # 1. Initialize Ollama client (embedding service)
-        logger.info(f"Initializing OllamaClient (host={args.host}, model={args.model})")
-        embedder = OllamaClient(
+        # 1. Initialize embedding provider (MLX or Ollama based on config)
+        logger.info(
+            f"Initializing embedding provider (backend={args.embedding_backend})"
+        )
+        embedder = create_embedding_provider(
+            backend=args.embedding_backend,
             host=args.host,
             model=args.model,
             timeout=args.timeout,
+            mlx_model=args.mlx_model,
         )
 
-        # Ensure model is available (auto-pull if needed)
-        if not embedder.ensure_model():
-            logger.error(
-                f"Failed to ensure model '{args.model}' is available. "
-                "Please check that Ollama is running and the model name is correct."
-            )
-            raise RuntimeError(f"Model '{args.model}' could not be loaded or pulled")
+        # For Ollama backend, ensure model is available (auto-pull if needed)
+        if args.embedding_backend == "ollama":
+            if hasattr(embedder, "ensure_model") and not embedder.ensure_model():
+                logger.error(
+                    f"Failed to ensure model '{args.model}' is available. "
+                    "Please check that Ollama is running and the model name is correct."
+                )
+                raise RuntimeError(f"Model '{args.model}' could not be loaded or pulled")
 
         components["embedder"] = embedder
 

@@ -483,10 +483,20 @@ class OllamaClient:
         except Exception as e:
             raise EmbeddingError(f"Failed to generate batch embeddings: {e}") from e
 
+    def close(self) -> None:
+        """Close the HTTP session and release resources.
+
+        Should be called when the client is no longer needed.
+        This method is idempotent (safe to call multiple times).
+        """
+        if self._session is not None:
+            self._session.close()
+            logger.debug("OllamaClient session closed")
+
     def __enter__(self):
         """Context manager entry."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit - close session."""
-        self._session.close()
+        self.close()
