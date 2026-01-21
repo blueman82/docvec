@@ -77,3 +77,4 @@ transcripts/
 
 # macOS
 .DS_Store
+.serena/
