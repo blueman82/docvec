@@ -299,29 +299,3 @@ class BatchProcessor:
             # On error, assume not duplicate to avoid skipping files
             return False
 
-    def _process_single_file(
-        self, file_path: Path, file_hash: str
-    ) -> Optional[list[str]]:
-        """Process a single file through the indexing pipeline.
-
-        Indexes the file and returns chunk IDs. The file hash is
-        passed through for metadata tracking.
-
-        Args:
-            file_path: Path to file to process
-            file_hash: Pre-computed hash of file content
-
-        Returns:
-            List of chunk IDs if successful, None if no chunks generated
-
-        Raises:
-            IndexingError: If indexing fails
-        """
-        try:
-            # Index the document
-            chunk_ids = self.indexer.index_document(file_path)
-
-            return chunk_ids if chunk_ids else None
-
-        except (IndexingError, FileNotFoundError) as e:
-            raise IndexingError(f"Failed to index {file_path}: {e}") from e
