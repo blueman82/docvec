@@ -295,7 +295,7 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 | `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
 | `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `512` | Maximum tokens per chunk |
-| `DOCVEC_BATCH_SIZE` | `--batch-size` | `32` | Batch size for embedding generation |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `128` | Batch size for embedding generation |
 | `DOCVEC_MAX_TOKENS` | `--max-tokens` | `512` | Maximum tokens per chunk for embedding model limits |
 | `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
