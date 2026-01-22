@@ -202,7 +202,10 @@ docvec/
 │       │   ├── text_chunker.py
 │       │   └── code_chunker.py    # AST-based Python chunking
 │       ├── embedding/
-│       │   └── ollama_client.py   # Ollama API client
+│       │   ├── provider.py        # EmbeddingProvider protocol
+│       │   ├── mlx_provider.py    # MLX backend (Apple Silicon, default)
+│       │   ├── ollama_client.py   # Ollama backend (alternative)
+│       │   └── factory.py         # Backend factory function
 │       ├── storage/
 │       │   └── chroma_store.py    # ChromaDB wrapper
 │       ├── deduplication/
