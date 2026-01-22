@@ -296,7 +296,7 @@ class CodeChunker(AbstractChunker):
         for node in class_node.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 start_line = node.lineno
-                end_line = node.end_lineno if hasattr(node, "end_lineno") else node.lineno
+                end_line = node.end_lineno if node.end_lineno is not None else node.lineno
 
                 # Include decorators
                 if hasattr(node, "decorator_list") and node.decorator_list:
