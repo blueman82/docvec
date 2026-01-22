@@ -153,8 +153,8 @@ class TestSearch:
 
         result = await query_tools.search("python", n_results=5)
 
-        # Verify embedder was called with embed_query (for model-specific prefixes)
-        mock_embedder.embed_query.assert_called_once_with("python")
+        # Verify embedder was called with embed(is_query=True) for model-specific prefixes
+        mock_embedder.embed.assert_called_once_with("python", is_query=True)
 
         # Verify storage search was called with correct parameters
         mock_storage.search.assert_called_once()
