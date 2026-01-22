@@ -39,7 +39,7 @@ A Model Context Protocol (MCP) server that provides semantic document indexing a
   - Page-aware chunking for PDFs
   - AST-based chunking for Python code
   - Paragraph-based chunking for plain text
-- **Local Embeddings**: Privacy-first approach using Ollama (mxbai-embed-large)
+- **Local Embeddings**: Privacy-first approach using MLX (default, Apple Silicon) or Ollama
 - **Persistent Storage**: ChromaDB vector database with metadata filtering
 - **Hash-based Deduplication**: Automatic detection and skipping of duplicate documents
 - **Token-aware Retrieval**: Control result size to fit within token budgets
