@@ -149,6 +149,14 @@ class MLXProvider:
                     for emb in embeddings
                 ]
 
+            # Clear MLX cache to prevent GPU memory accumulation across batches
+            # Without this, intermediate tensors accumulate and can consume 18+ GB
+            try:
+                import mlx.core as mx
+                mx.clear_cache()
+            except Exception:
+                pass  # Non-critical - just memory optimization
+
             return result
         except EmbeddingError:
             raise
