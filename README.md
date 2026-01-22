@@ -1,6 +1,6 @@
 # DocVec - Document Vector Database
 
-A Model Context Protocol (MCP) server that provides semantic document indexing and retrieval using ChromaDB and local Ollama embeddings. Reduce token usage in Claude conversations by efficiently retrieving only relevant document chunks.
+A Model Context Protocol (MCP) server that provides semantic document indexing and retrieval using ChromaDB and local embeddings. Uses MLX on Apple Silicon (default) or Ollama as an alternative backend. Reduce token usage in Claude conversations by efficiently retrieving only relevant document chunks.
 
 ## Table of Contents
 
