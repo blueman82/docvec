@@ -6,7 +6,7 @@ This document explains the design and architecture of the DocVec server.
 
 DocVec is a document indexing and retrieval system built on three core principles:
 
-1. **Local-first**: All processing happens locally using Ollama embeddings
+1. **Local-first**: All processing happens locally using MLX embeddings (Apple Silicon) or Ollama
 2. **Privacy-preserving**: No data sent to external APIs
 3. **Token-efficient**: Retrieve only relevant chunks to minimize Claude token usage
 
@@ -61,23 +61,24 @@ DocVec is a document indexing and retrieval system built on three core principle
 │  Document Chunkers  │      │  Service Layer     │
 │                     │      │                    │
 │  ┌──────────────┐  │      │  ┌──────────────┐  │
-│  │   Markdown   │  │      │  │ Ollama Client│  │
-│  │   Chunker    │  │      │  │ - Embeddings │  │
-│  └──────────────┘  │      │  │ - Retry logic│  │
-│  ┌──────────────┐  │      │  │ - Health chk │  │
-│  │     PDF      │  │      │  └──────────────┘  │
-│  │   Chunker    │  │      │                    │
-│  └──────────────┘  │      │  ┌──────────────┐  │
-│  ┌──────────────┐  │      │  │ ChromaDB     │  │
-│  │     Text     │  │      │  │  Storage     │  │
-│  │   Chunker    │  │      │  │ - Add chunks │  │
-│  └──────────────┘  │      │  │ - Search     │  │
-│  ┌──────────────┐  │      │  │ - Filtering  │  │
-│  │     Code     │  │      │  └──────────────┘  │
-│  │   Chunker    │  │      │                    │
-│  └──────────────┘  │      │  ┌──────────────┐  │
-└─────────────────────┘      │  │ Token Counter│  │
-                             │  │ - tiktoken   │  │
+│  │   Markdown   │  │      │  │ Embedding    │  │
+│  │   Chunker    │  │      │  │ Provider     │  │
+│  └──────────────┘  │      │  │ (Protocol)   │  │
+│  ┌──────────────┐  │      │  └──────────────┘  │
+│  │     PDF      │  │      │        │           │
+│  │   Chunker    │  │      │  ┌─────┴─────┐     │
+│  └──────────────┘  │      │  │           │     │
+│  ┌──────────────┐  │      │  ▼           ▼     │
+│  │     Text     │  │      │ MLX      Ollama    │
+│  │   Chunker    │  │      │ Provider Client    │
+│  └──────────────┘  │      │ (default) (alt)    │
+│  ┌──────────────┐  │      │                    │
+│  │     Code     │  │      │  ┌──────────────┐  │
+│  │   Chunker    │  │      │  │ ChromaDB     │  │
+│  └──────────────┘  │      │  │  Storage     │  │
+└─────────────────────┘      │  │ - Add chunks │  │
+                             │  │ - Search     │  │
+                             │  │ - Filtering  │  │
                              │  └──────────────┘  │
                              │                    │
                              │  ┌──────────────┐  │
@@ -134,7 +135,7 @@ Coordinates the indexing pipeline:
 **Implementation**: `src/docvec/mcp_tools/query_tools.py`
 
 Manages semantic search pipeline:
-1. Query embedding via Ollama
+1. Query embedding via EmbeddingProvider (MLX or Ollama)
 2. Vector search in ChromaDB
 3. Metadata filtering
 4. Token budget enforcement
@@ -175,7 +176,7 @@ Pipeline:
 1. Format detection (by extension)
 2. Chunker selection and execution
 3. Token validation
-4. Batch embedding (via Ollama)
+4. Batch embedding (via EmbeddingProvider - MLX or Ollama)
 5. Storage (via ChromaDB)
 
 **Key Design Decisions**:
@@ -185,9 +186,8 @@ Pipeline:
 
 **Integration Points**:
 - Chunkers: MarkdownChunker, PDFChunker, TextChunker, CodeChunker
-- OllamaClient: Batch embedding API
+- EmbeddingProvider: Batch embedding API (MLXProvider or OllamaClient)
 - ChromaStore: Vector storage
-- TokenCounter: Chunk validation
 
 ### Document Chunkers
 
@@ -288,9 +288,43 @@ Algorithm:
 
 ### Service Layer
 
-#### Ollama Client
+#### Embedding Provider (Protocol)
 
-**Responsibility**: Embedding generation
+**Responsibility**: Embedding generation with pluggable backends
+
+**Protocol**: `src/docvec/embedding/provider.py`
+
+The system uses a protocol-based abstraction for embedding generation, allowing multiple backends:
+
+```python
+class EmbeddingProvider(Protocol):
+    def embed(self, text: str, is_query: bool = False) -> list[float]:
+        """Generate embedding for single text."""
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts."""
+```
+
+#### MLX Provider (Default)
+
+**Responsibility**: Apple Silicon optimized embeddings
+
+**Implementation**: `src/docvec/embedding/mlx_provider.py`
+
+Features:
+- Native Apple Silicon GPU acceleration via Metal
+- Uses mlx-embeddings library
+- Model: mxbai-embed-large-v1 (default)
+- Automatic query prefix for better retrieval
+
+**Key Design Decisions**:
+- Default backend for Apple Silicon Macs
+- GPU memory management with mx.clear_cache()
+- No external server required (model runs in-process)
+
+#### Ollama Client (Alternative)
+
+**Responsibility**: Server-based embedding generation
 
 **Implementation**: `src/docvec/embedding/ollama_client.py`
 
@@ -301,21 +335,22 @@ Features:
 - Health check (validates model availability)
 
 **Key Design Decisions**:
-- Batch size configurable (default: 32 chunks/batch)
+- Batch size configurable (default: 128 chunks/batch)
 - Retry on transient failures (network, temp unavailability)
 - Timeout configurable (default: 30s)
 
-**API**:
+#### Backend Factory
+
+**Responsibility**: Create appropriate embedding provider
+
+**Implementation**: `src/docvec/embedding/factory.py`
+
 ```python
-class OllamaClient:
-    def embed(self, text: str) -> list[float]:
-        """Generate embedding for single text."""
-
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts."""
-
-    def health_check(self) -> bool:
-        """Verify Ollama service and model availability."""
+def create_embedding_provider(
+    backend: Literal["mlx", "ollama"] = "mlx",
+    **kwargs
+) -> EmbeddingProvider:
+    """Create embedding provider based on backend selection."""
 ```
 
 #### ChromaDB Storage
@@ -422,9 +457,9 @@ Uses SHA-256 for content hashing
      │ valid_chunks
      ▼
 ┌──────────────┐
-│ OllamaClient │ ─── Batch chunks (32 at a time)
-└────┬─────────┘   ─── Call Ollama API
-     │              ─── Retry on failure
+│ Embedding    │ ─── Batch chunks (128 at a time)
+│ Provider     │ ─── Call MLX/Ollama
+└────┬─────────┘   ─── Retry on failure (Ollama)
      │
      │ embeddings: [[0.1, 0.2, ...], ...]
      ▼
@@ -457,7 +492,8 @@ Uses SHA-256 for content hashing
      │ query text
      ▼
 ┌──────────────┐
-│ OllamaClient │ ─── Generate query embedding
+│ Embedding    │ ─── Generate query embedding
+│ Provider     │     (with is_query=True for prefix)
 └────┬─────────┘
      │
      │ query_embedding: [0.3, 0.1, ...]
@@ -483,9 +519,9 @@ Uses SHA-256 for content hashing
 
 ## Design Decisions and Rationale
 
-### Why Local Embeddings (Ollama)?
+### Why Local Embeddings (MLX/Ollama)?
 
-**Decision**: Use Ollama for local embedding generation
+**Decision**: Use local embedding generation with MLX (default) or Ollama (alternative)
 
 **Rationale**:
 - **Privacy**: Documents never leave local machine
@@ -493,10 +529,21 @@ Uses SHA-256 for content hashing
 - **Latency**: Faster for small batches (no network round trip)
 - **Control**: Model selection and version control
 
+**Why MLX as default**:
+- Native Apple Silicon GPU acceleration
+- No external server required
+- Better memory efficiency with mx.clear_cache()
+- Simpler setup (just install dependencies)
+
+**Why Ollama as alternative**:
+- Cross-platform support (Linux, Windows)
+- Broader model selection
+- Useful when MLX unavailable
+
 **Trade-offs**:
-- Requires local compute resources
-- Slower than cloud APIs for very large batches
-- Limited to models supported by Ollama
+- MLX requires Apple Silicon Mac
+- Ollama requires running server process
+- Both require local compute resources
 
 ### Why ChromaDB?
 

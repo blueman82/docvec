@@ -34,7 +34,14 @@ This guide covers installation, configuration, and deployment of the DocVec in v
    uv --version
    ```
 
-3. **Ollama**
+3. **Embedding Backend** (choose one)
+
+   **Option A: MLX (Default - Apple Silicon only)**
+   - No additional installation required
+   - Model auto-downloads on first use (~500MB)
+   - Best performance on Apple Silicon Macs
+
+   **Option B: Ollama (Cross-platform alternative)**
    ```bash
    # macOS
    brew install ollama
@@ -47,25 +54,24 @@ This guide covers installation, configuration, and deployment of the DocVec in v
 
    # Verify installation
    ollama --version
-   ```
 
-4. **Embedding Model**
-   ```bash
-   # Pull the required embedding model (336MB)
-   ollama pull mxbai-embed-large
+   # Pull the embedding model
+   ollama pull nomic-embed-text
 
    # Verify model is available
-   ollama list | grep mxbai-embed-large
+   ollama list | grep nomic-embed-text
    ```
 
 ### System Requirements
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| CPU | 2 cores | 4+ cores |
+| CPU | 2 cores | 4+ cores (Apple Silicon for MLX) |
 | RAM | 4 GB | 8+ GB |
 | Disk Space | 2 GB | 10+ GB |
-| OS | macOS 11+, Ubuntu 20.04+, Windows 10+ | Latest stable |
+| OS | macOS 11+ (MLX), Ubuntu 20.04+, Windows 10+ (Ollama) | Latest stable |
+
+**Note**: MLX backend requires Apple Silicon Mac (M1/M2/M3). Use Ollama backend for Intel Macs and non-macOS systems.
 
 ## Installation Methods
 
@@ -106,17 +112,21 @@ docker pull yourusername/docvec:latest
 Configuration can be set via CLI arguments or environment variables with the `DOCVEC_` prefix:
 
 ```bash
-# Vector Database Configuration
-export DOCVEC_DB_PATH="./chroma_db"
+# Embedding Backend Configuration (default: mlx)
+export DOCVEC_EMBEDDING_BACKEND="mlx"  # or "ollama"
+export DOCVEC_MLX_MODEL="mlx-community/mxbai-embed-large-v1"
 
-# Ollama Configuration
+# Ollama Configuration (only when using --embedding-backend ollama)
 export DOCVEC_HOST="http://localhost:11434"
 export DOCVEC_MODEL="nomic-embed-text"
 export DOCVEC_TIMEOUT=30
 
+# Vector Database Configuration
+export DOCVEC_DB_PATH="./chroma_db"
+
 # Chunking Configuration
-export DOCVEC_CHUNK_SIZE=256
-export DOCVEC_BATCH_SIZE=16
+export DOCVEC_CHUNK_SIZE=512
+export DOCVEC_BATCH_SIZE=128
 
 # Collection Configuration
 export DOCVEC_COLLECTION="documents"
@@ -127,20 +137,42 @@ export DOCVEC_LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
 
 Or use CLI arguments:
 ```bash
+# Using MLX backend (default on Apple Silicon)
 python -m docvec \
   --db-path ./chroma_db \
+  --chunk-size 512 \
+  --batch-size 128 \
+  --collection documents \
+  --log-level INFO
+
+# Using Ollama backend (cross-platform)
+python -m docvec \
+  --embedding-backend ollama \
   --host http://localhost:11434 \
   --model nomic-embed-text \
-  --chunk-size 256 \
-  --batch-size 16 \
-  --collection documents \
+  --db-path ./chroma_db \
   --log-level INFO
 ```
 
-### Quick Start with Environment Variables
+### Quick Start with MLX (Apple Silicon)
 
 ```bash
+# Just set database path - MLX is default
+export DOCVEC_DB_PATH="./chroma_db"
+
+# Run server (MLX model downloads automatically on first run)
+uv run python -m docvec
+```
+
+### Quick Start with Ollama (Cross-platform)
+
+```bash
+# Ensure Ollama is running
+ollama serve &
+ollama pull nomic-embed-text
+
 # Set environment variables
+export DOCVEC_EMBEDDING_BACKEND="ollama"
 export DOCVEC_DB_PATH="./chroma_db"
 export DOCVEC_HOST="http://localhost:11434"
 export DOCVEC_MODEL="nomic-embed-text"
@@ -151,8 +183,12 @@ uv run python -m docvec
 
 Alternatively, pass all arguments on command line:
 ```bash
+# MLX backend
+uv run python -m docvec --db-path ./chroma_db --log-level DEBUG
+
+# Ollama backend
 uv run python -m docvec \
-  --db-path ./chroma_db \
+  --embedding-backend ollama \
   --host http://localhost:11434 \
   --model nomic-embed-text \
   --log-level DEBUG
@@ -412,9 +448,40 @@ mcp-inspector uv run python -m docvec
 
 ## Troubleshooting
 
-### Ollama Not Starting
+### MLX Model Download Issues (Apple Silicon)
+
+**Symptoms**: `Failed to download model` or slow first-run
+
+**Solutions**:
+```bash
+# Ensure internet connectivity for first run
+# Model (~500MB) downloads from HuggingFace
+
+# Check HuggingFace cache
+ls ~/.cache/huggingface/hub/
+
+# Pre-download model manually
+pip install huggingface-cli
+huggingface-cli download mlx-community/mxbai-embed-large-v1
+
+# If using custom model
+export DOCVEC_MLX_MODEL="mlx-community/other-model"
+```
+
+### MLX Memory Issues (Apple Silicon)
+
+**Symptoms**: High memory usage during indexing
+
+**Solutions**:
+- MLX uses Metal GPU unified memory - Activity Monitor may show high usage
+- Memory is automatically freed after batches via `mx.clear_cache()`
+- Reduce batch size if needed: `--batch-size 64`
+
+### Ollama Not Starting (Alternative Backend)
 
 **Symptoms**: `Connection refused: http://localhost:11434`
+
+**Note**: Only applies if using `--embedding-backend ollama`
 
 **Solutions**:
 ```bash
@@ -705,8 +772,15 @@ chmod 600 ~/.docvec/config.yaml
 
 ## Production Checklist
 
+**For MLX backend (Apple Silicon)**:
+- [ ] Apple Silicon Mac (M1/M2/M3)
+- [ ] Python 3.11+ installed
+- [ ] First run completes (model downloads)
+- [ ] Environment variables configured
+
+**For Ollama backend (cross-platform)**:
 - [ ] Ollama installed and running
-- [ ] Embedding model pulled (mxbai-embed-large)
+- [ ] Embedding model pulled (nomic-embed-text)
 - [ ] Environment variables configured
 - [ ] Database directory created with correct permissions
 - [ ] Log rotation configured

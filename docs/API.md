@@ -129,7 +129,7 @@ Response (error):
 | `Permission denied: {path}` | No read access | Fix file permissions |
 | `Unsupported file format: {ext}` | Unknown extension | Use supported format |
 | `Failed to extract content` | Corrupted file | Verify file integrity |
-| `Embedding service unavailable` | Ollama not running | Start Ollama |
+| `Embedding service unavailable` | MLX/Ollama error | Check embedding backend configuration |
 
 ---
 
@@ -970,7 +970,7 @@ All tools return a consistent error response format:
 | `FILE_NOT_FOUND` | File path doesn't exist | Verify path is correct |
 | `PERMISSION_DENIED` | Cannot read file | Fix permissions |
 | `UNSUPPORTED_FORMAT` | File format not supported | Use .md, .pdf, .txt, or .py |
-| `EMBEDDING_FAILED` | Ollama embedding error | Check Ollama is running |
+| `EMBEDDING_FAILED` | Embedding generation error | Check MLX (Apple Silicon) or Ollama is configured correctly |
 | `STORAGE_ERROR` | ChromaDB operation failed | Check disk space and permissions |
 | `INVALID_INPUT` | Invalid parameter values | Check parameter types and ranges |
 | `QUERY_FAILED` | Search operation failed | Check database integrity |
@@ -984,8 +984,12 @@ All tools return a consistent error response format:
 
 ### Embedding Rate Limits
 
-Ollama local embeddings have no rate limits, but performance depends on hardware:
+Local embeddings (MLX or Ollama) have no rate limits, but performance depends on hardware:
 
+**MLX (Apple Silicon)**:
+- M1/M2/M3: ~100-300 chunks/second (GPU accelerated via Metal)
+
+**Ollama**:
 - CPU: ~50-100 chunks/second
 - GPU: ~200-500 chunks/second
 
