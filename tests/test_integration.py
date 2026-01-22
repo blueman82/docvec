@@ -224,15 +224,13 @@ def populated_db_path() -> Generator[Path, None, None]:
         # Create components
         embedder = Mock(spec=OllamaClient)
 
-        def mock_embed(text: str) -> list[float]:
+        def mock_embed(text: str, is_query: bool = False) -> list[float]:
             text_hash = hash(text[:100])
             base_vector = [((text_hash + i) % 100) / 100.0 for i in range(384)]
             magnitude = sum(x * x for x in base_vector) ** 0.5
             return [x / magnitude for x in base_vector]
 
         embedder.embed = Mock(side_effect=mock_embed)
-        embedder.embed_query = Mock(side_effect=mock_embed)
-        embedder.embed_document = Mock(side_effect=mock_embed)
         embedder.embed_batch = Mock(
             side_effect=lambda texts, batch_size=32, is_query=False: [
                 mock_embed(t) for t in texts
