@@ -523,17 +523,17 @@ class TestEmbedQuery:
     """Test query embedding functionality."""
 
     def test_embed_query_calls_embedder(self, query_tools, mock_embedder):
-        """Test that _embed_query calls embedder.embed_query() correctly."""
-        mock_embedder.embed_query.return_value = [0.1, 0.2, 0.3]
+        """Test that _embed_query calls embedder.embed(is_query=True) correctly."""
+        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
 
         result = query_tools._embed_query("test query")
 
-        mock_embedder.embed_query.assert_called_once_with("test query")
+        mock_embedder.embed.assert_called_once_with("test query", is_query=True)
         assert result == [0.1, 0.2, 0.3]
 
     def test_embed_query_propagates_error(self, query_tools, mock_embedder):
         """Test that embedding errors are propagated."""
-        mock_embedder.embed_query.side_effect = EmbeddingError("Failed")
+        mock_embedder.embed.side_effect = EmbeddingError("Failed")
 
         with pytest.raises(EmbeddingError):
             query_tools._embed_query("test")
