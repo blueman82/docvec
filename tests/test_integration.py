@@ -769,7 +769,7 @@ class TestOversizedChunkSplitting:
         chunk_ids = indexer.index_document(test_file)
 
         # Verify embedder was called for all chunks
-        assert mock_embedder.embed_batch.called, "Embedder should be called"
+        assert mock_embedder.embed_batch.called is True, "Embedder should be called"
 
         # Verify all chunks were successfully stored
         assert len(chunk_ids) > 0, "All chunks should be stored"
