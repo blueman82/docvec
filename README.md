@@ -53,25 +53,12 @@ A Model Context Protocol (MCP) server that provides semantic document indexing a
 
 - Python 3.11 or higher
 - [uv](https://docs.astral.sh/uv/) package manager (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- [Ollama](https://ollama.ai) installed and running
+- Apple Silicon Mac (for MLX backend, default) OR [Ollama](https://ollama.ai) installed
 - 2GB+ free disk space for ChromaDB
 
 ### Installation
 
-1. Install Ollama and pull the embedding model:
-```bash
-# Install Ollama (https://ollama.ai)
-# macOS/Linux:
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Start Ollama (runs in background)
-ollama serve &
-
-# Pull the embedding model
-ollama pull mxbai-embed-large
-```
-
-2. Install the MCP server:
+1. Install the MCP server:
 ```bash
 # Clone the repository
 git clone https://github.com/blueman82/docvec.git
