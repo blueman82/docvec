@@ -53,3 +53,9 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "docvec.storage.chroma_store"
 disable_error_code = ["arg-type"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
