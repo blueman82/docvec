@@ -223,7 +223,7 @@ class TestSearch:
         self, query_tools, mock_embedder
     ):
         """Test that embedding error is wrapped in QueryError."""
-        mock_embedder.embed_query.side_effect = EmbeddingError("Embedding failed")
+        mock_embedder.embed.side_effect = EmbeddingError("Embedding failed")
 
         with pytest.raises(QueryError, match="Search failed"):
             await query_tools.search("test")
