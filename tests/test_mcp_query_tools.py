@@ -569,7 +569,7 @@ class TestIntegration:
 
         # Create mock embedder
         mock_embedder = Mock(spec=OllamaClient)
-        mock_embedder.embed_query.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
 
         # Create QueryTools
         tools = QueryTools(embedder=mock_embedder, storage=storage)
