@@ -229,14 +229,28 @@ docvec/
 
 ## Troubleshooting
 
-### Ollama Connection Failed
+### MLX Model Download Failed
+
+**Error**: `Failed to download MLX model` or slow first-run performance
+
+**Solution**:
+1. First run downloads ~500MB model from HuggingFace - ensure internet connectivity
+2. Model cached at `~/.cache/huggingface/` after first download
+3. Check available disk space (needs ~1GB for model cache)
+4. For offline use, pre-download: `huggingface-cli download mlx-community/mxbai-embed-large-v1`
+
+[↑ Back to top](#table-of-contents)
+
+### Ollama Connection Failed (Alternative Backend)
 
 **Error**: `Failed to connect to Ollama at http://localhost:11434`
+
+**Note**: This only applies if using `--embedding-backend ollama`.
 
 **Solution**:
 1. Check if Ollama is running: `ollama list`
 2. Start Ollama if needed: `ollama serve`
-3. Verify the embedding model is available: `ollama pull mxbai-embed-large`
+3. Verify the embedding model is available: `ollama pull nomic-embed-text`
 
 [↑ Back to top](#table-of-contents)
 
