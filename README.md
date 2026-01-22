@@ -175,12 +175,14 @@ Configuration is done via CLI arguments (takes precedence) or environment variab
 
 | Environment Variable | CLI Argument | Default | Description |
 |----------|----------|---------|-------------|
+| `DOCVEC_EMBEDDING_BACKEND` | `--embedding-backend` | `mlx` | Embedding backend (`mlx` or `ollama`) |
+| `DOCVEC_MLX_MODEL` | `--mlx-model` | `mlx-community/mxbai-embed-large-v1` | MLX model (HuggingFace path) |
 | `DOCVEC_DB_PATH` | `--db-path` | `./chroma_db` | ChromaDB storage location |
-| `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint |
-| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Embedding model name |
+| `DOCVEC_HOST` | `--host` | `http://localhost:11434` | Ollama API endpoint (when using ollama backend) |
+| `DOCVEC_MODEL` | `--model` | `nomic-embed-text` | Ollama model name (when using ollama backend) |
 | `DOCVEC_TIMEOUT` | `--timeout` | `30` | Ollama request timeout in seconds |
 | `DOCVEC_CHUNK_SIZE` | `--chunk-size` | `512` | Target tokens per chunk |
-| `DOCVEC_BATCH_SIZE` | `--batch-size` | `32` | Batch size for embedding generation |
+| `DOCVEC_BATCH_SIZE` | `--batch-size` | `128` | Batch size for embedding generation |
 | `DOCVEC_MAX_TOKENS` | `--max-tokens` | `512` | Maximum tokens per chunk (splits oversized chunks) |
 | `DOCVEC_COLLECTION` | `--collection` | `documents` | ChromaDB collection name |
 | `DOCVEC_LOG_LEVEL` | `--log-level` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
