@@ -71,7 +71,7 @@ def mock_embedder() -> OllamaClient:
     """
     embedder = Mock(spec=OllamaClient)
 
-    def mock_embed(text: str) -> list[float]:
+    def mock_embed(text: str, is_query: bool = False) -> list[float]:
         """Generate deterministic embedding based on text content.
 
         Uses simple hashing to create consistent embeddings that vary
@@ -99,8 +99,7 @@ def mock_embedder() -> OllamaClient:
         return [mock_embed(text) for text in texts]
 
     embedder.embed = Mock(side_effect=mock_embed)
-    embedder.embed_query = Mock(side_effect=mock_embed)  # For query embeddings
-    embedder.embed_document = Mock(side_effect=mock_embed)  # For document embeddings
+    embedder.embed_batch = Mock(side_effect=mock_embed_batch)
     embedder.embed_batch = Mock(side_effect=mock_embed_batch)
     embedder.health_check = Mock(return_value=True)
     embedder.ensure_model = Mock(return_value=True)  # Auto-pull model check
