@@ -234,7 +234,9 @@ class TestBatchProcessorFileDiscovery:
 class TestBatchProcessorDeduplication:
     """Test deduplication functionality."""
 
-    def test_is_duplicate_true_same_file_same_hash(self, processor, mock_storage, tmp_path):
+    def test_is_duplicate_true_same_file_same_hash(
+        self, processor, mock_storage, tmp_path
+    ):
         """Test detecting duplicate when file path exists with same hash."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")
@@ -251,7 +253,9 @@ class TestBatchProcessorDeduplication:
         assert is_dup is True
         mock_storage.get_by_source_file.assert_called_once_with(str(file_path))
 
-    def test_is_duplicate_false_same_file_different_hash(self, processor, mock_storage, tmp_path):
+    def test_is_duplicate_false_same_file_different_hash(
+        self, processor, mock_storage, tmp_path
+    ):
         """Test re-indexing when file content changed (different hash)."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("New content")
@@ -271,7 +275,9 @@ class TestBatchProcessorDeduplication:
         # Should have deleted old chunks
         mock_storage.delete_by_source_file.assert_called_once_with(str(file_path))
 
-    def test_is_duplicate_true_content_duplicate(self, processor, mock_storage, tmp_path):
+    def test_is_duplicate_true_content_duplicate(
+        self, processor, mock_storage, tmp_path
+    ):
         """Test detecting content duplicate under different path."""
         file_path = tmp_path / "test.txt"
         file_path.write_text("Content")

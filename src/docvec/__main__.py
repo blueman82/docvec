@@ -211,7 +211,9 @@ def initialize_components(args: argparse.Namespace) -> dict[str, Any]:
                     f"Failed to ensure model '{args.model}' is available. "
                     "Please check that Ollama is running and the model name is correct."
                 )
-                raise RuntimeError(f"Model '{args.model}' could not be loaded or pulled")
+                raise RuntimeError(
+                    f"Model '{args.model}' could not be loaded or pulled"
+                )
 
         components["embedder"] = embedder
 

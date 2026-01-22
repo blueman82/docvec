@@ -296,7 +296,9 @@ class CodeChunker(AbstractChunker):
         for node in class_node.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 start_line = node.lineno
-                end_line = node.end_lineno if node.end_lineno is not None else node.lineno
+                end_line = (
+                    node.end_lineno if node.end_lineno is not None else node.lineno
+                )
 
                 # Include decorators
                 if hasattr(node, "decorator_list") and node.decorator_list:
@@ -317,7 +319,7 @@ class CodeChunker(AbstractChunker):
         part_index = 0
 
         # Include class header in first chunk
-        header_lines = lines[: class_header_end]
+        header_lines = lines[:class_header_end]
         header_content = "\n".join(header_lines).strip()
         if header_content:
             current_text = header_content

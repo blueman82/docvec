@@ -207,7 +207,9 @@ class BatchProcessor:
                     chunk_file_map.append(str(file_path))
 
                 files_with_chunks.add(str(file_path))
-                logger.info(f"Chunked {file_path.name}: {len(chunks)} chunks (accumulator: {len(chunk_accumulator)})")
+                logger.info(
+                    f"Chunked {file_path.name}: {len(chunks)} chunks (accumulator: {len(chunk_accumulator)})"
+                )
 
                 # Flush if accumulator is full
                 if len(chunk_accumulator) >= batch_threshold:
@@ -278,7 +280,11 @@ class BatchProcessor:
             existing = self.storage.get_by_source_file(str(file_path))
             if existing is not None:
                 # File is indexed - check if content changed
-                existing_hash = existing["metadatas"][0].get("doc_hash") if existing["metadatas"] else None
+                existing_hash = (
+                    existing["metadatas"][0].get("doc_hash")
+                    if existing["metadatas"]
+                    else None
+                )
                 if existing_hash == file_hash:
                     # Same content, skip
                     return True
@@ -296,4 +302,3 @@ class BatchProcessor:
             logger.warning(f"Failed to check duplicate for {file_path}: {e}")
             # On error, assume not duplicate to avoid skipping files
             return False
-

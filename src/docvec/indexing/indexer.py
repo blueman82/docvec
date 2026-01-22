@@ -297,17 +297,23 @@ class Indexer:
         elif chunker_class == MarkdownChunker:
             # MarkdownChunker uses character-based chunk_size
             return MarkdownChunker(
-                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+                chunk_size=char_chunk_size,
+                chunk_overlap=200,
+                max_tokens=self.max_tokens,
             )
         elif chunker_class == PDFChunker:
             # PDFChunker uses character-based chunk_size
             return PDFChunker(
-                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+                chunk_size=char_chunk_size,
+                chunk_overlap=200,
+                max_tokens=self.max_tokens,
             )
         else:
             # TextChunker uses character-based chunk_size
             return TextChunker(
-                chunk_size=char_chunk_size, chunk_overlap=200, max_tokens=self.max_tokens
+                chunk_size=char_chunk_size,
+                chunk_overlap=200,
+                max_tokens=self.max_tokens,
             )
 
     def _validate_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
